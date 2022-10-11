@@ -36,6 +36,7 @@ android {
 }
 
 dependencies {
+    implementation project(":libraries:core")
     implementation project(":libraries:ui:theme")
     implementation project(":libraries:sdk:matrix")
 
@@ -55,4 +56,6 @@ dependencies {
     implementation 'androidx.activity:activity-compose:1.6.0'
 
     implementation 'androidx.fragment:fragment-ktx:1.5.3'
+
+    implementation 'com.airbnb.android:mavericks-compose:2.7.0'
 }
