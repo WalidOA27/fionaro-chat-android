@@ -18,6 +18,7 @@ dependencies {
     implementation(project(":libraries:di"))
     implementation(project(":libraries:core"))
     implementation(project(":features:rageshake"))
+    implementation(project(":features:logout"))
     implementation(project(":libraries:designsystem"))
     implementation(project(":libraries:elementresources"))
     implementation(libs.mavericks.compose)
