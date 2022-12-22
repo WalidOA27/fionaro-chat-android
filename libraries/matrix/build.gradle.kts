@@ -33,7 +33,6 @@ dependencies {
     implementation(project(":libraries:di"))
     implementation(project(":libraries:core"))
     implementation("net.java.dev.jna:jna:5.12.1@aar")
-    implementation(libs.coil.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.serialization.json)
 }
