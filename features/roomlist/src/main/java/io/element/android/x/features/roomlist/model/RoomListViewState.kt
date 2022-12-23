@@ -22,7 +22,6 @@ import com.airbnb.mvrx.Uninitialized
 import io.element.android.x.matrix.core.RoomId
 
 data class RoomListViewState(
-    val user: Async<MatrixUser> = Uninitialized,
     // Will contain the filtered rooms, using ::filter (if filter is not empty)
     val rooms: Async<List<RoomListRoomSummary>> = Uninitialized,
     val filter: String = "",
