@@ -18,16 +18,16 @@
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
     id("io.element.android-compose-library")
-    alias(libs.plugins.molecule)
 }
 
 android {
-    namespace = "io.element.android.x.architecture"
+    namespace = "io.element.android.x.libraries.architecture"
 }
 
 dependencies {
-    api(project(":libraries:core"))
+    api(project(":libraries:di"))
     api(libs.dagger)
     api(libs.appyx.core)
+    api(libs.molecule.runtime)
     api(libs.androidx.lifecycle.runtime)
 }
