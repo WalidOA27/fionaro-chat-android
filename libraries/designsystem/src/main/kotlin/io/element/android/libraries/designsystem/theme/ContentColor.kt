@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-package io.element.android.libraries.designsystem.components.color
+package io.element.android.libraries.designsystem.theme
 
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
-import io.element.android.libraries.designsystem.theme.ElementColors
-import io.element.android.libraries.designsystem.theme.ElementTheme
 
 @Composable
 @ReadOnlyComposable

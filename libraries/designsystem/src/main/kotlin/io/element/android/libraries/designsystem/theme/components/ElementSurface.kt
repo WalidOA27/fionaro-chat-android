@@ -17,7 +17,6 @@
 package io.element.android.libraries.designsystem.theme.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,7 +24,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.element.android.libraries.designsystem.components.color.elementContentColorFor
+import io.element.android.libraries.designsystem.theme.elementContentColorFor
 import io.element.android.libraries.designsystem.theme.ElementTheme
 
 @Composable
@@ -39,7 +38,7 @@ fun ElementSurface(
     border: BorderStroke? = null,
     content: @Composable () -> Unit
 ) {
-    Surface(
+    androidx.compose.material3.Surface(
         modifier = modifier,
         shape = shape,
         color = color,

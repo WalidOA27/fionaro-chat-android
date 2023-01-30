@@ -16,7 +16,6 @@
 
 package io.element.android.libraries.designsystem.theme.components
 
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -31,7 +30,7 @@ fun ElementCircularProgressIndicator(
     color: Color = ProgressIndicatorDefaults.circularColor,
     strokeWidth: Dp = ProgressIndicatorDefaults.CircularStrokeWidth
 ) {
-    CircularProgressIndicator(
+    androidx.compose.material3.CircularProgressIndicator(
         modifier = modifier,
         progress = progress,
         color = color,
@@ -45,7 +44,7 @@ fun ElementCircularProgressIndicator(
     color: Color = ElementTheme.colors.primary,
     strokeWidth: Dp = ProgressIndicatorDefaults.CircularStrokeWidth,
 ) {
-    CircularProgressIndicator(
+    androidx.compose.material3.CircularProgressIndicator(
         modifier = modifier,
         color = color,
         strokeWidth = strokeWidth,
