@@ -18,10 +18,17 @@ package io.element.android.libraries.matrix.ui.media
 
 import coil.key.Keyer
 import coil.request.Options
+import io.element.android.libraries.designsystem.components.avatar.AvatarData
 import io.element.android.libraries.matrix.media.MediaResolver
+
+internal class AvatarKeyer : Keyer<AvatarData> {
+    override fun key(data: AvatarData, options: Options): String? {
+        return MediaKeyer().key(data.toMetadata(), options)
+    }
+}
 
 internal class MediaKeyer : Keyer<MediaResolver.Meta> {
     override fun key(data: MediaResolver.Meta, options: Options): String? {
-        return "${data.source.url()}_${data.kind}"
+        return "${data.source?.url()}_${data.kind}"
     }
 }
