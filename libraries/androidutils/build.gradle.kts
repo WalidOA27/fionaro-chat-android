@@ -26,4 +26,5 @@ android {
 dependencies {
     implementation(libs.timber)
     implementation(libs.androidx.corektx)
+    implementation(projects.libraries.core)
 }
