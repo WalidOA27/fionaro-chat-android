@@ -20,7 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import io.element.android.features.messages.timeline.model.content.TimelineItemUnknownContent
+import io.element.android.features.messages.timeline.model.event.TimelineItemUnknownContent
 
 @Composable
 fun TimelineItemUnknownView(
