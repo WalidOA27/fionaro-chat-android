@@ -17,10 +17,9 @@
 package io.element.android.features.rageshake.screenshot
 
 import android.graphics.Bitmap
-import java.io.File
 
 interface ScreenshotHolder {
     fun writeBitmap(data: Bitmap)
-    fun getFile(): File?
+    fun getFileUri(): String?
     fun reset()
 }
