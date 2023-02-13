@@ -22,10 +22,3 @@ data class RageshakePreferencesState(
     val sensitivity: Float,
     val eventSink: (RageshakePreferencesEvents) -> Unit,
 )
-
-fun aRageshakePreferencesState() = RageshakePreferencesState(
-    isEnabled = false,
-    isSupported = true,
-    sensitivity = 0.3f,
-    eventSink = {}
-)
