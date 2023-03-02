@@ -17,9 +17,9 @@
 package io.element.android.features.rageshake.bugreport
 
 import com.bumble.appyx.core.plugin.Plugin
-import io.element.android.libraries.architecture.EntryPoint
+import io.element.android.libraries.architecture.FeatureEntryPoint
 
-interface BugReportEntryPoint : EntryPoint {
+interface BugReportEntryPoint : FeatureEntryPoint {
     interface Callback : Plugin {
         fun onBugReportSent()
     }
