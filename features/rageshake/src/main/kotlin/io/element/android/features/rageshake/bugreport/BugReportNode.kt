@@ -34,10 +34,6 @@ class BugReportNode @AssistedInject constructor(
     private val presenter: BugReportPresenter,
 ) : Node(buildContext, plugins = plugins) {
 
-    interface Callback : Plugin {
-        fun onBugReportSent()
-    }
-
     @Composable
     override fun View(modifier: Modifier) {
         val state = presenter.present()
@@ -49,6 +45,6 @@ class BugReportNode @AssistedInject constructor(
     }
 
     private fun onDone() {
-        plugins<Callback>().forEach { it.onBugReportSent() }
+        plugins<BugReportEntryPoint.Callback>().forEach { it.onBugReportSent() }
     }
 }
