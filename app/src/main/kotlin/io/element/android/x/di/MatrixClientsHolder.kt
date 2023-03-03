@@ -28,7 +28,6 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 private const val SAVE_INSTANCE_KEY = "io.element.android.x.di.MatrixClientsHolder.SaveInstanceKey"
-
 @SingleIn(AppScope::class)
 class MatrixClientsHolder @Inject constructor(private val authenticationService: MatrixAuthenticationService) {
 
