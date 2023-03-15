@@ -16,9 +16,4 @@
 
 package io.element.android.features.createroom.impl.addpeople
 
-import io.element.android.libraries.matrix.ui.model.MatrixUser
-import kotlinx.collections.immutable.ImmutableList
-
-sealed interface AddPeopleEvents {
-    data class UpdateSelection(val users: ImmutableList<MatrixUser>) : AddPeopleEvents
-}
+sealed interface AddPeopleEvents
