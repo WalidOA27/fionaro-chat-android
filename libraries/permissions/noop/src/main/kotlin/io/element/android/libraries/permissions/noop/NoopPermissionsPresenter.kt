@@ -20,9 +20,7 @@ import androidx.compose.runtime.Composable
 import io.element.android.libraries.permissions.api.PermissionsPresenter
 import io.element.android.libraries.permissions.api.PermissionsState
 
-class NoopPermissionsPresenter: PermissionsPresenter {
-
-    override fun setParameter(permission: String) = Unit
+class NoopPermissionsPresenter : PermissionsPresenter {
 
     @Composable
     override fun present(): PermissionsState {
