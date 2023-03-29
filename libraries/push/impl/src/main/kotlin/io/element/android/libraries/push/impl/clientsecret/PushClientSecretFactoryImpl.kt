@@ -19,9 +19,10 @@ package io.element.android.libraries.push.impl.clientsecret
 import com.squareup.anvil.annotations.ContributesBinding
 import io.element.android.libraries.di.AppScope
 import java.util.UUID
+import javax.inject.Inject
 
 @ContributesBinding(AppScope::class)
-class PushClientSecretFactoryImpl : PushClientSecretFactory {
+class PushClientSecretFactoryImpl @Inject constructor() : PushClientSecretFactory {
     override fun create(): String {
         return UUID.randomUUID().toString()
     }
