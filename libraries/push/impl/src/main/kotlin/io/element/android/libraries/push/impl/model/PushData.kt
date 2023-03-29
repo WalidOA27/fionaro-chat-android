@@ -27,6 +27,5 @@ data class PushData(
         val eventId: String?,
         val roomId: String?,
         val unread: Int?,
-
-        // TODO EAx Client secret
+        val clientSecret: String?,
 )
