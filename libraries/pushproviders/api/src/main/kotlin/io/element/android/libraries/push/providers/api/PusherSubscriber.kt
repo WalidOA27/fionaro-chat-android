@@ -20,4 +20,5 @@ import io.element.android.libraries.matrix.api.MatrixClient
 
 interface PusherSubscriber {
     suspend fun registerPusher(matrixClient: MatrixClient, pushKey: String, gateway: String)
+    suspend fun unregisterPusher(matrixClient: MatrixClient, pushKey: String, gateway: String)
 }

@@ -43,7 +43,7 @@ class FirebaseNewTokenHandler @Inject constructor(
         // Register the pusher for all the sessions
         sessionStore.getAllSessions().toUserList().forEach { userId ->
             val userDataStore = userPushStoreFactory.create(userId)
-            if (userDataStore.getNotificationMethod() == FirebaseConfig.internalName) {
+            if (userDataStore.getPushProviderName() == FirebaseConfig.name) {
                 matrixAuthenticationService.restoreSession(SessionId(userId)).getOrNull()?.use { client ->
                     pusherSubscriber.registerPusher(client, firebaseToken, FirebaseConfig.pusher_http_url)
                 }
