@@ -17,7 +17,6 @@
 package io.element.android.libraries.featureflag.api
 
 interface FeatureFlagService {
-
     /**
      * @param feature the feature to check for
      *
