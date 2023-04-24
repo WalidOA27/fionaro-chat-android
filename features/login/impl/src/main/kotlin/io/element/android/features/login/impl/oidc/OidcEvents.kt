@@ -16,6 +16,8 @@
 
 package io.element.android.features.login.impl.oidc
 
+import io.element.android.features.login.api.oidc.OidcAction
+
 sealed interface OidcEvents {
     object Cancel : OidcEvents
     data class OidcActionEvent(val oidcAction: OidcAction): OidcEvents
