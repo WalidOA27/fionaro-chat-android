@@ -17,22 +17,17 @@
 package io.element.android.features.messages.impl.media.viewer
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
-import io.element.android.features.messages.impl.media.viewer.model.MediaContentUiModel
+import io.element.android.libraries.architecture.Async
 
 open class MediaViewerStateProvider : PreviewParameterProvider<MediaViewerState> {
     override val values: Sequence<MediaViewerState>
         get() = sequenceOf(
             aMediaViewerState(),
+            // Add other states here
         )
 }
 
 fun aMediaViewerState() = MediaViewerState(
-    mediaContent = aMediaImage(),
+    name = "A media",
+    downloadedMedia = Async.Uninitialized
 )
-
-private fun aMediaImage() = MediaContentUiModel.Image(
-    body = "a body",
-    url = "",
-    blurhash = null,
-)
-

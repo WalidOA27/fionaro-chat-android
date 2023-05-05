@@ -24,25 +24,32 @@ import com.bumble.appyx.core.plugin.Plugin
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import io.element.android.anvilannotations.ContributesNode
-import io.element.android.features.messages.impl.media.viewer.model.MediaContentUiModel
 import io.element.android.libraries.architecture.NodeInputs
 import io.element.android.libraries.architecture.inputs
 import io.element.android.libraries.di.RoomScope
+import io.element.android.libraries.matrix.api.media.MatrixMediaSource
 
 @ContributesNode(RoomScope::class)
 class MediaViewerNode @AssistedInject constructor(
     @Assisted buildContext: BuildContext,
     @Assisted plugins: List<Plugin>,
+    presenterFactory: MediaViewerPresenter.Factory,
 ) : Node(buildContext, plugins = plugins) {
 
-    data class Inputs(val mediaContent: MediaContentUiModel) : NodeInputs
+    data class Inputs(
+        val name: String,
+        val mediaSource: MatrixMediaSource,
+    ) : NodeInputs
 
     private val inputs: Inputs = inputs()
 
+    private val presenter = presenterFactory.create(inputs.name, inputs.mediaSource)
+
     @Composable
     override fun View(modifier: Modifier) {
+        val state = presenter.present()
         MediaViewerView(
-            state = MediaViewerState(inputs.mediaContent),
+            state = state,
             modifier = modifier
         )
     }

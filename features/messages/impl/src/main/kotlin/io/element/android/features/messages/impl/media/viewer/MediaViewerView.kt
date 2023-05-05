@@ -14,83 +14,49 @@
  * limitations under the License.
  */
 
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package io.element.android.features.messages.impl.media.viewer
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculatePan
-import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
-import io.element.android.features.messages.impl.media.viewer.model.MediaContentUiModel
-import io.element.android.libraries.designsystem.components.ZoomableBox
-import io.element.android.libraries.designsystem.components.blurhash.BlurHashAsyncImage
+import androidx.compose.ui.unit.dp
+import io.element.android.features.messages.impl.media.local.LocalMediaView
+import io.element.android.libraries.architecture.Async
+import io.element.android.libraries.designsystem.components.dialogs.ErrorDialog
 import io.element.android.libraries.designsystem.preview.ElementPreviewDark
 import io.element.android.libraries.designsystem.preview.ElementPreviewLight
+import io.element.android.libraries.designsystem.theme.components.CircularProgressIndicator
+import io.element.android.libraries.designsystem.theme.components.Scaffold
 
 @Composable
 fun MediaViewerView(
     state: MediaViewerState,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center,
-    ) {
-        when (state.mediaContent) {
-            is MediaContentUiModel.Image -> MediaImageViewer(state.mediaContent)
-            is MediaContentUiModel.Video -> MediaVideoViewer(state.mediaContent)
+    Scaffold(modifier) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            when (state.downloadedMedia) {
+                is Async.Success -> LocalMediaView(state.downloadedMedia.state)
+                is Async.Failure -> ErrorDialog(
+                    content = "Error while downloading the media",
+                )
+                else -> CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                )
+            }
         }
     }
 }
-
-@Composable
-private fun MediaImageViewer(
-    image: MediaContentUiModel.Image,
-    modifier: Modifier = Modifier,
-) {
-    ZoomableBox(
-        modifier = modifier.fillMaxSize(),
-    ) {
-        BlurHashAsyncImage(
-            blurHash = image.blurhash,
-            modifier = Modifier.fillMaxSize().zoomable(),
-            model = image.mediaRequestData,
-            contentScale = ContentScale.Fit,
-        )
-    }
-}
-
-@Composable
-private fun MediaVideoViewer(
-    video: MediaContentUiModel.Video,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-
-    }
-}
-
 
 @Preview
 @Composable
