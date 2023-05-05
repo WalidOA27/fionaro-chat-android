@@ -26,6 +26,6 @@ fun RustVideoInfo.map(): VideoInfo = VideoInfo(
     mimetype = mimetype,
     size = size?.toLong(),
     thumbnailInfo = thumbnailInfo?.map(),
-    thumbnailUrl = thumbnailSource?.useUrl(),
+    thumbnailSource = thumbnailSource?.map(),
     blurhash = blurhash
 )

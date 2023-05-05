@@ -17,6 +17,7 @@
 package io.element.android.features.messages.impl.timeline.model.event
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import io.element.android.libraries.matrix.api.media.MatrixMediaSource
 import io.element.android.libraries.matrix.ui.media.MediaRequestData
 
 open class TimelineItemImageContentProvider : PreviewParameterProvider<TimelineItemImageContent> {
@@ -30,7 +31,9 @@ open class TimelineItemImageContentProvider : PreviewParameterProvider<TimelineI
 
 fun aTimelineItemImageContent() = TimelineItemImageContent(
     body = "a body",
-    mediaRequestData = MediaRequestData(url = "", kind = MediaRequestData.Kind.Content),
-    blurhash = null,
+    mediaSource = MatrixMediaSource(""),
+    blurhash = "TQF5:I_NtRE4kXt7Z#MwkCIARPjr",
     aspectRatio = 0.5f,
+    height = null,
+    width = null
 )

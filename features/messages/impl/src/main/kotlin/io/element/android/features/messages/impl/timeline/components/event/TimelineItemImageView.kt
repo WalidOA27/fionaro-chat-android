@@ -18,39 +18,38 @@ package io.element.android.features.messages.impl.timeline.components.event
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
+import androidx.compose.ui.unit.dp
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemImageContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemImageContentProvider
 import io.element.android.libraries.designsystem.components.blurhash.BlurHashAsyncImage
 import io.element.android.libraries.designsystem.preview.ElementPreviewDark
 import io.element.android.libraries.designsystem.preview.ElementPreviewLight
+import io.element.android.libraries.matrix.ui.media.MediaRequestData
+import kotlin.math.min
 
 @Composable
 fun TimelineItemImageView(
     content: TimelineItemImageContent,
     modifier: Modifier = Modifier,
 ) {
-    val widthPercent = if (content.aspectRatio > 1f) {
-        1f
-    } else {
-        0.7f
-    }
+    val maxHeight = min(300, content.height ?: Int.MAX_VALUE)
     Box(
         modifier = modifier
-            .fillMaxWidth(widthPercent)
+            .heightIn(max = maxHeight.dp)
             .aspectRatio(content.aspectRatio),
         contentAlignment = Alignment.Center,
     ) {
         BlurHashAsyncImage(
             blurHash = content.blurhash,
-            model = content.mediaRequestData,
-            contentScale = ContentScale.Crop,
+            model = MediaRequestData(content.mediaSource, MediaRequestData.Kind.Content),
+            contentScale = ContentScale.Fit,
         )
     }
 }
