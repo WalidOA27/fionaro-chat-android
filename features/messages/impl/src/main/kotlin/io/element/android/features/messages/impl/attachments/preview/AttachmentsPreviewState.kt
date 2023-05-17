@@ -17,7 +17,10 @@
 package io.element.android.features.messages.impl.attachments.preview
 
 import io.element.android.features.messages.impl.attachments.Attachment
+import io.element.android.libraries.architecture.Async
 
 data class AttachmentsPreviewState(
     val attachment: Attachment,
+    val sendActionState: Async<Unit>,
+    val eventSink: (AttachmentsPreviewEvents) -> Unit
 )
