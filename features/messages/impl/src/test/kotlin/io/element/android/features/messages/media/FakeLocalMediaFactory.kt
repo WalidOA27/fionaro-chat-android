@@ -27,7 +27,7 @@ class FakeLocalMediaFactory(private val localMediaUri: Uri) : LocalMediaFactory 
 
     var fallbackMimeType: String = MimeTypes.OctetStream
 
-    override fun createFromUri(uri: Uri, mimeType: String?, name: String?): LocalMedia {
+    override fun createFromUri(uri: Uri, mimeType: String?, name: String?, formattedFileSize: String?): LocalMedia {
         return aLocalMedia(uri, mimeType ?: fallbackMimeType)
     }
 }
