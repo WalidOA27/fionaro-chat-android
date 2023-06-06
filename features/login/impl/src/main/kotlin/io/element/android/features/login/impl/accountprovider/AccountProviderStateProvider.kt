@@ -31,6 +31,6 @@ fun aAccountProviderState() = AccountProviderState(
     homeserver = "matrix.org",
     isMatrix = true,
     isAccountCreation = false,
-    changeServerAction = Async.Uninitialized,
+    loginFlow = Async.Uninitialized,
     eventSink = {}
 )
