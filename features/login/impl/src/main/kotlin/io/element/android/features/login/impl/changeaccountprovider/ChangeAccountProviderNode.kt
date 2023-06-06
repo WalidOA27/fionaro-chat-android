@@ -21,9 +21,11 @@ import androidx.compose.ui.Modifier
 import com.bumble.appyx.core.modality.BuildContext
 import com.bumble.appyx.core.node.Node
 import com.bumble.appyx.core.plugin.Plugin
+import com.bumble.appyx.core.plugin.plugins
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import io.element.android.anvilannotations.ContributesNode
+import io.element.android.features.login.impl.changeaccountprovider.item.AccountProviderItem
 import io.element.android.libraries.di.AppScope
 
 @ContributesNode(AppScope::class)
@@ -33,14 +35,28 @@ class ChangeAccountProviderNode @AssistedInject constructor(
     private val presenter: ChangeAccountProviderPresenter,
 ) : Node(buildContext, plugins = plugins) {
 
+    interface Callback : Plugin {
+        fun onAccountProviderItemClicked(data: AccountProviderItem)
+        fun onOtherClicked()
+    }
+
+    private fun onAccountProviderItemClicked(data: AccountProviderItem) {
+        plugins<Callback>().forEach { it.onAccountProviderItemClicked(data) }
+    }
+
+    private fun onOtherClicked() {
+        plugins<Callback>().forEach { it.onOtherClicked() }
+    }
+
     @Composable
     override fun View(modifier: Modifier) {
         val state = presenter.present()
         ChangeAccountProviderView(
             state = state,
             modifier = modifier,
-            // TODO
-            onBackPressed = {}
+            onBackPressed = ::navigateUp,
+            onAccountProviderItemClicked = ::onAccountProviderItemClicked,
+            onOtherProviderClicked = ::onOtherClicked,
         )
     }
 }

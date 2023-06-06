@@ -17,7 +17,4 @@
 package io.element.android.features.login.impl.changeaccountprovider
 
 sealed interface ChangeAccountProviderEvents {
-    data class SetServer(val server: String) : ChangeAccountProviderEvents
-    object Submit : ChangeAccountProviderEvents
-    object ClearError : ChangeAccountProviderEvents
 }
