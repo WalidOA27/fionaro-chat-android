@@ -15,19 +15,10 @@
  */
 package io.element.android.features.login.impl.changeaccountprovider.form.network
 
-import io.element.android.libraries.network.RetrofitFactory
-import javax.inject.Inject
-
-class WellknownRequest @Inject constructor(
-    private val retrofitFactory: RetrofitFactory,
-) {
+interface WellknownRequest {
     /**
-     * Return the WellKnown data, if found.
+     * Return the WellKnown data, or throw an error if not found.
      * @param baseUrl for instance https://matrix.org
      */
-    suspend fun execute(baseUrl: String): WellKnown {
-        val wellknownApi = retrofitFactory.create(baseUrl)
-            .create(WellknownAPI::class.java)
-        return wellknownApi.getWellKnown()
-    }
+    suspend fun execute(baseUrl: String): WellKnown
 }
