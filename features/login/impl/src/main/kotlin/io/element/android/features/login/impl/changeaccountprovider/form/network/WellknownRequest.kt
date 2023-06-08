@@ -15,32 +15,19 @@
  */
 package io.element.android.features.login.impl.changeaccountprovider.form.network
 
-import io.element.android.libraries.core.bool.orFalse
 import io.element.android.libraries.network.RetrofitFactory
-import timber.log.Timber
 import javax.inject.Inject
 
 class WellknownRequest @Inject constructor(
     private val retrofitFactory: RetrofitFactory,
 ) {
     /**
-     * Return true if the wellknown can be retrieved and is valid.
+     * Return the WellKnown data, if found.
      * @param baseUrl for instance https://matrix.org
      */
-    suspend fun execute(baseUrl: String): Boolean {
+    suspend fun execute(baseUrl: String): WellKnown {
         val wellknownApi = retrofitFactory.create(baseUrl)
             .create(WellknownAPI::class.java)
-
-        return try {
-            val response = wellknownApi.getWellKnown()
-            response.isValid()
-        } catch (throwable: Throwable) {
-            Timber.e(throwable)
-            false
-        }
+        return wellknownApi.getWellKnown()
     }
-}
-
-private fun WellKnown.isValid(): Boolean {
-    return homeServer?.baseURL?.isNotBlank().orFalse()
 }
