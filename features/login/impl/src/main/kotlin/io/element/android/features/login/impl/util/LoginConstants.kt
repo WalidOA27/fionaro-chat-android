@@ -16,7 +16,7 @@
 
 package io.element.android.features.login.impl.util
 
-import io.element.android.features.login.impl.accountprovider.item.AccountProvider
+import io.element.android.features.login.impl.accountprovider.AccountProvider
 
 object LoginConstants {
     const val MATRIX_ORG_URL = "matrix.org"
