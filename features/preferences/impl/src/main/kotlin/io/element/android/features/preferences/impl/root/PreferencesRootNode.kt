@@ -36,6 +36,8 @@ class PreferencesRootNode @AssistedInject constructor(
 
     interface Callback : Plugin {
         fun onOpenBugReport()
+        fun onOpenAnalytics()
+        fun onOpenAbout()
         fun onOpenDeveloperSettings()
     }
 
@@ -47,6 +49,14 @@ class PreferencesRootNode @AssistedInject constructor(
         plugins<Callback>().forEach { it.onOpenDeveloperSettings() }
     }
 
+    private fun onOpenAnalytics() {
+        plugins<Callback>().forEach { it.onOpenAnalytics() }
+    }
+
+    private fun onOpenAbout() {
+        plugins<Callback>().forEach { it.onOpenAbout() }
+    }
+
     @Composable
     override fun View(modifier: Modifier) {
         val state = presenter.present()
@@ -55,8 +65,9 @@ class PreferencesRootNode @AssistedInject constructor(
             modifier = modifier,
             onBackPressed = this::navigateUp,
             onOpenRageShake = this::onOpenBugReport,
+            onOpenAnalytics = this::onOpenAnalytics,
+            onOpenAbout = this::onOpenAbout,
             onOpenDeveloperSettings = this::onOpenDeveloperSettings
         )
     }
-
 }
