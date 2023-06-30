@@ -17,25 +17,25 @@
 package io.element.android.libraries.designsystem.components.preferences
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Announcement
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import io.element.android.libraries.designsystem.components.preferences.components.PreferenceIcon
 import io.element.android.libraries.designsystem.preview.ElementThemedPreview
 import io.element.android.libraries.designsystem.preview.PreviewGroup
-import io.element.android.libraries.designsystem.theme.components.Checkbox
 import io.element.android.libraries.designsystem.theme.components.Text
 import io.element.android.libraries.designsystem.toEnabledColor
+import io.element.android.libraries.theme.ElementTheme
 
 @Composable
 fun PreferenceSwitch(
@@ -44,38 +44,37 @@ fun PreferenceSwitch(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     icon: ImageVector? = null,
+    showIconAreaIfNoIcon: Boolean = false,
     onCheckedChange: (Boolean) -> Unit = {},
 ) {
-    Box(
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = preferenceMinHeight)
+            .padding(vertical = 4.dp, horizontal = preferencePaddingHorizontal)
             .clickable { onCheckedChange(!isChecked) },
-        contentAlignment = Alignment.CenterStart
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            PreferenceIcon(
-                modifier = Modifier.padding(vertical = preferencePaddingVertical),
-                icon = icon,
-                enabled = enabled
-            )
-            Text(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(vertical = preferencePaddingVertical),
-                style = MaterialTheme.typography.bodyLarge,
-                color = enabled.toEnabledColor(),
-                text = title
-            )
-            Checkbox(
-                modifier = Modifier
-                    .padding(end = preferencePaddingHorizontal)
-                    .align(Alignment.CenterVertically),
-                checked = isChecked,
-                enabled = enabled,
-                onCheckedChange = onCheckedChange
-            )
-        }
+        PreferenceIcon(
+            icon = icon,
+            enabled = enabled,
+            isVisible = showIconAreaIfNoIcon
+        )
+        Text(
+            modifier = Modifier
+                .weight(1f),
+            style = ElementTheme.typography.fontBodyLgRegular,
+            text = title,
+            color = enabled.toEnabledColor(),
+        )
+        // TODO Create a wrapper for Switch
+        Switch(
+            modifier = Modifier
+                .align(Alignment.CenterVertically),
+            checked = isChecked,
+            enabled = enabled,
+            onCheckedChange = onCheckedChange
+        )
     }
 }
 
