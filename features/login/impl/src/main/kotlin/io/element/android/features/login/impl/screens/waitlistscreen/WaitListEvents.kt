@@ -19,4 +19,5 @@ package io.element.android.features.login.impl.screens.waitlistscreen
 sealed interface WaitListEvents {
     object AttemptLogin : WaitListEvents
     object ClearError : WaitListEvents
+    object Continue : WaitListEvents
 }
