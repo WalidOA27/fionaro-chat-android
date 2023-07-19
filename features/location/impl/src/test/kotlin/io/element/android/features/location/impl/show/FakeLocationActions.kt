@@ -26,8 +26,15 @@ class FakeLocationActions : LocationActions {
     var sharedLabel: String? = null
         private set
 
+    var openSettingsInvocationsCount = 0
+        private set
+
     override fun share(location: Location, label: String?) {
         sharedLocation = location
         sharedLabel = label
+    }
+
+    override fun openSettings() {
+        openSettingsInvocationsCount++
     }
 }
