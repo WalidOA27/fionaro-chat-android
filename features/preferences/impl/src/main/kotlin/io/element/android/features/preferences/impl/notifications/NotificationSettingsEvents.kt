@@ -16,16 +16,12 @@
 
 package io.element.android.features.preferences.impl.notifications
 
-import io.element.android.libraries.matrix.api.room.RoomNotificationMode
-
 sealed interface NotificationSettingsEvents {
 
     data object RefreshSystemNotificationsEnabled : NotificationSettingsEvents
     data class SetNotificationsEnabled(val enabled: Boolean) : NotificationSettingsEvents
     data class SetAtRoomNotificationsEnabled(val enabled: Boolean) : NotificationSettingsEvents
     data class SetCallNotificationsEnabled(val enabled: Boolean) : NotificationSettingsEvents
-    data class SetDefaultGroupNotificationMode(val mode: RoomNotificationMode) : NotificationSettingsEvents
-    data class SetDefaultOneToOneNotificationMode(val mode: RoomNotificationMode) : NotificationSettingsEvents
     data object FixConfigurationMismatch : NotificationSettingsEvents
     data object ClearConfigurationMismatchError : NotificationSettingsEvents
 }
