@@ -17,5 +17,5 @@
 package io.element.android.features.pin.impl.auth
 
 sealed interface PinAuthenticationEvents {
-    object MyEvent : PinAuthenticationEvents
+    data object Unlock : PinAuthenticationEvents
 }
