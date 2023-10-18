@@ -16,6 +16,9 @@
 
 package io.element.android.features.lockscreen.impl.create
 
+import io.element.android.features.lockscreen.impl.create.model.PinEntry
+
 data class CreatePinState(
+    val pinEntry: PinEntry,
     val eventSink: (CreatePinEvents) -> Unit
 )
