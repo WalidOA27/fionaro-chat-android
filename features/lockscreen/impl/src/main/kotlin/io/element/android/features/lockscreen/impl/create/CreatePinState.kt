@@ -17,8 +17,18 @@
 package io.element.android.features.lockscreen.impl.create
 
 import io.element.android.features.lockscreen.impl.create.model.PinEntry
+import io.element.android.features.lockscreen.impl.create.validation.PinCreationFailure
 
 data class CreatePinState(
-    val pinEntry: PinEntry,
+    val choosePinEntry: PinEntry,
+    val confirmPinEntry: PinEntry,
+    val isConfirmationStep: Boolean,
+    val creationFailure: PinCreationFailure?,
     val eventSink: (CreatePinEvents) -> Unit
-)
+) {
+    val activePinEntry = if (isConfirmationStep) {
+        confirmPinEntry
+    } else {
+        choosePinEntry
+    }
+}
