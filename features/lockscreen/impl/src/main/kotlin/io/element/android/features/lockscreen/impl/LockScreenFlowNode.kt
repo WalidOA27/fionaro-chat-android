@@ -24,9 +24,11 @@ import com.bumble.appyx.core.modality.BuildContext
 import com.bumble.appyx.core.node.Node
 import com.bumble.appyx.core.plugin.Plugin
 import com.bumble.appyx.navmodel.backstack.BackStack
+import com.bumble.appyx.navmodel.backstack.operation.push
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import io.element.android.anvilannotations.ContributesNode
+import io.element.android.features.lockscreen.impl.settings.LockScreenSettingsFlowNode
 import io.element.android.features.lockscreen.impl.settings.LockScreenSettingsNode
 import io.element.android.features.lockscreen.impl.setup.SetupPinNode
 import io.element.android.features.lockscreen.impl.unlock.PinUnlockNode
@@ -74,7 +76,7 @@ class LockScreenFlowNode @AssistedInject constructor(
                 createNode<SetupPinNode>(buildContext)
             }
             NavTarget.Settings -> {
-                createNode<LockScreenSettingsNode>(buildContext)
+                createNode<LockScreenSettingsFlowNode>(buildContext)
             }
         }
     }
