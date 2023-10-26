@@ -21,7 +21,9 @@ import kotlin.time.Duration
 sealed class VoiceMessageState {
     data object Idle: VoiceMessageState()
 
-    data object Preview: VoiceMessageState()
+    data class Preview(
+        val isPlaying: Boolean,
+    ): VoiceMessageState()
     data object Sending: VoiceMessageState()
     data class Recording(
         val duration: Duration,
