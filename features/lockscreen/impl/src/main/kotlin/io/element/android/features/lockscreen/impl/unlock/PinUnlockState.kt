@@ -27,5 +27,8 @@ data class PinUnlockState(
     val signOutAction: Async<String?>,
     val eventSink: (PinUnlockEvents) -> Unit
 ) {
-    val isSignOutPromptCancellable = (remainingAttempts.dataOrNull() ?: 0) > 0
+    val isSignOutPromptCancellable = when (remainingAttempts) {
+        is Async.Success -> remainingAttempts.data > 0
+        else -> true
+    }
 }
