@@ -23,9 +23,11 @@ sealed class VoiceMessageState {
     data object Idle: VoiceMessageState()
 
     data class Preview(
+        val isSending: Boolean,
         val isPlaying: Boolean,
+        val waveform: ImmutableList<Float>,
     ): VoiceMessageState()
-    data object Sending: VoiceMessageState()
+
     data class Recording(
         val duration: Duration,
         val levels: ImmutableList<Float>,
