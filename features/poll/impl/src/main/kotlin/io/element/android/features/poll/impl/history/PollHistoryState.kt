@@ -17,11 +17,10 @@
 package io.element.android.features.poll.impl.history
 
 import io.element.android.libraries.matrix.api.timeline.MatrixTimeline
-import io.element.android.libraries.matrix.api.timeline.item.event.PollContent
 import kotlinx.collections.immutable.ImmutableList
 
 data class PollHistoryState(
     val paginationState: MatrixTimeline.PaginationState,
-    val matrixTimelineItems: ImmutableList<PollContent>,
+    val pollItems: ImmutableList<PollHistoryItem>,
     val eventSink: (PollHistoryEvents) -> Unit,
 )
