@@ -16,11 +16,14 @@
 
 package io.element.android.features.poll.impl.history
 
-import io.element.android.libraries.matrix.api.timeline.MatrixTimeline
+import io.element.android.features.poll.impl.history.model.PollHistoryFilter
+import io.element.android.features.poll.impl.history.model.PollHistoryItem
 import kotlinx.collections.immutable.ImmutableList
 
 data class PollHistoryState(
-    val paginationState: MatrixTimeline.PaginationState,
-    val pollItems: ImmutableList<PollHistoryItem>,
+    val isLoading: Boolean,
+    val hasMoreToLoad: Boolean,
+    val activeFilter: PollHistoryFilter,
+    val currentItems: ImmutableList<PollHistoryItem>,
     val eventSink: (PollHistoryEvents) -> Unit,
 )
