@@ -20,7 +20,6 @@ import io.element.android.features.roomlist.impl.filters.RoomListFilter
 import kotlinx.coroutines.flow.StateFlow
 
 interface FilterSelectionStrategy {
-
     val filterSelectionStates: StateFlow<Set<FilterSelectionState>>
 
     fun select(filter: RoomListFilter)
