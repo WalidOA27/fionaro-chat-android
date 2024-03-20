@@ -16,6 +16,11 @@
 
 package io.element.android.features.roomdirectory.impl.search
 
+import io.element.android.features.roomdirectory.impl.search.model.RoomDirectorySearchResult
+import kotlinx.collections.immutable.ImmutableList
+
 data class RoomDirectorySearchState(
+    val query: String,
+    val results: ImmutableList<RoomDirectorySearchResult>,
     val eventSink: (RoomDirectorySearchEvents) -> Unit
 )
