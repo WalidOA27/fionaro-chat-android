@@ -23,7 +23,6 @@ import io.element.android.libraries.architecture.FeatureEntryPoint
 import io.element.android.libraries.matrix.api.core.RoomId
 
 interface RoomDirectoryEntryPoint : FeatureEntryPoint {
-
     fun nodeBuilder(parentNode: Node, buildContext: BuildContext): NodeBuilder
 
     interface NodeBuilder {
@@ -35,4 +34,3 @@ interface RoomDirectoryEntryPoint : FeatureEntryPoint {
         fun onOpenRoom(roomId: RoomId)
     }
 }
-

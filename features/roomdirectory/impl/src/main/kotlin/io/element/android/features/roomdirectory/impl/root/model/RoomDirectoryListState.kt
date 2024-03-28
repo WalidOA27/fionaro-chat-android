@@ -24,7 +24,6 @@ internal data class RoomDirectoryListState(
     val hasMoreToLoad: Boolean,
     val items: ImmutableList<RoomDescription>,
 ) {
-
     companion object {
         val Default = RoomDirectoryListState(
             hasMoreToLoad = true,
