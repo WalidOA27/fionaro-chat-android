@@ -24,4 +24,11 @@ sealed interface VirtualTimelineItem {
     data object ReadMarker : VirtualTimelineItem
 
     data object EncryptedHistoryBanner : VirtualTimelineItem
+
+    data object RoomBeginning: VirtualTimelineItem
+
+    data class LoadingIndicator(
+        val backwards: Boolean,
+        val timestamp: Long,
+    ): VirtualTimelineItem
 }
