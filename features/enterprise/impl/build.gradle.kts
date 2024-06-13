@@ -27,4 +27,10 @@ dependencies {
     api(libs.anvil.compiler.api)
     api(projects.features.enterprise.api)
     implementation(projects.libraries.architecture)
+    implementation(projects.libraries.matrix.api)
+
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.test.junit)
+    testImplementation(libs.test.truth)
+    testImplementation(projects.libraries.matrix.test)
 }
