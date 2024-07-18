@@ -16,8 +16,8 @@
 
 <resources>
 
-    <style name="Theme.OssLicenses.Light.v27" parent="Base.Theme.OssLicenses.Light">
-        <item name="android:windowLightNavigationBar">true</item>
+    <style name="Theme.OssLicenses.Light.v27" parent="Base.Theme.OssLicenses">
+        <item name="android:windowLightNavigationBar">@bool/windowLightNavigationBar</item>
     </style>
 
     <style name="Theme.OssLicenses" parent="Theme.OssLicenses.Light.v27"/>
