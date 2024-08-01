@@ -19,7 +19,8 @@ package io.element.android.features.messages.impl.pinned.banner
 data class PinnedMessagesBannerState(
     val pinnedMessagesCount: Int,
     val currentPinnedMessageIndex: Int,
+    val currentPinnedMessage: PinnedMessagesBannerItem?,
     val eventSink: (PinnedMessagesBannerEvents) -> Unit
 ) {
-    val displayBanner = pinnedMessagesCount > 0 && currentPinnedMessageIndex < pinnedMessagesCount
+    val displayBanner = pinnedMessagesCount > 0 && currentPinnedMessage != null
 }
