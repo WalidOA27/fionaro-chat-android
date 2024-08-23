@@ -16,6 +16,10 @@
 
 package io.element.android.features.call.impl.pip
 
+import io.element.android.features.call.impl.utils.WebPipApi
+
 sealed interface PictureInPictureEvents {
+    data class SetupWebPipApi(val webPipApi: WebPipApi) : PictureInPictureEvents
     data object EnterPictureInPicture : PictureInPictureEvents
+    data class OnPictureInPictureModeChanged(val isInPip: Boolean) : PictureInPictureEvents
 }
