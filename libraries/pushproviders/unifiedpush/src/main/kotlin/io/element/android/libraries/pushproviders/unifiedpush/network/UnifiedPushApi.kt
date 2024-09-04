@@ -16,9 +16,10 @@
 
 package io.element.android.libraries.pushproviders.unifiedpush.network
 
+import io.element.android.libraries.pushproviders.unifiedpush.UnifiedPushConfig
 import retrofit2.http.GET
 
 interface UnifiedPushApi {
-    @GET("_matrix/push/v1/notify")
+    @GET(UnifiedPushConfig.PUSH_GATEWAY_PATH)
     suspend fun discover(): DiscoveryResponse
 }
