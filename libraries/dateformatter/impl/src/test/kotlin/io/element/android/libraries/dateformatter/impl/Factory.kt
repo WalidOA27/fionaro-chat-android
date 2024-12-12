@@ -10,6 +10,7 @@ package io.element.android.libraries.dateformatter.impl
 import io.element.android.tests.testutils.InstrumentationStringProvider
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
+import java.util.Locale
 
 /**
  * Create DefaultDateFormatter and set current time to the provided date.
@@ -21,6 +22,7 @@ fun createFormatter(currentDate: String): DefaultDateFormatter {
         localeChangeObserver = {},
         clock = clock,
         timeZoneProvider = { TimeZone.UTC },
+        locale = Locale.getDefault(),
     )
     val stringProvider = InstrumentationStringProvider()
     val dateFormatterDay = DefaultDateFormatterDay(
