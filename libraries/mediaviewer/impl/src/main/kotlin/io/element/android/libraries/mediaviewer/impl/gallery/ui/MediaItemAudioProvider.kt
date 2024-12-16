@@ -9,12 +9,10 @@ package io.element.android.libraries.mediaviewer.impl.gallery.ui
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import io.element.android.libraries.core.preview.loremIpsum
-import io.element.android.libraries.designsystem.components.media.aWaveForm
 import io.element.android.libraries.matrix.api.core.UniqueId
 import io.element.android.libraries.matrix.api.media.MediaSource
 import io.element.android.libraries.mediaviewer.api.anAudioMediaInfo
 import io.element.android.libraries.mediaviewer.impl.gallery.MediaItem
-import kotlinx.collections.immutable.toImmutableList
 
 class MediaItemAudioProvider : PreviewParameterProvider<MediaItem.Audio> {
     override val values: Sequence<MediaItem.Audio>
@@ -27,9 +25,6 @@ class MediaItemAudioProvider : PreviewParameterProvider<MediaItem.Audio> {
             aMediaItemAudio(
                 caption = loremIpsum,
             ),
-            aMediaItemAudio(
-                waveform = aWaveForm(),
-            ),
         )
 }
 
@@ -38,7 +33,6 @@ fun aMediaItemAudio(
     filename: String = "filename",
     caption: String? = null,
     duration: String? = "1:23",
-    waveform: List<Float>? = null,
 ): MediaItem.Audio {
     return MediaItem.Audio(
         id = id,
@@ -49,6 +43,5 @@ fun aMediaItemAudio(
         ),
         mediaSource = MediaSource(""),
         duration = duration,
-        waveform = waveform?.toImmutableList(),
     )
 }
