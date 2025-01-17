@@ -11,5 +11,5 @@ import timber.log.Timber
 
 interface TracingService {
     fun setupTracing(tracingConfiguration: TracingConfiguration)
-    fun createTimberTree(): Timber.Tree
+    fun createTimberTree(target: String): Timber.Tree
 }
