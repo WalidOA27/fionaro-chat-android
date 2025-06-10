@@ -7,10 +7,7 @@
 
 package io.element.android.libraries.push.api.battery
 
-import android.app.Activity
-
 data class BatteryOptimizationState(
     val shouldDisplayBanner: Boolean,
-    val dismiss: () -> Unit,
-    val openSettings: (Activity?) -> Unit,
+    val eventSink: (BatteryOptimizationEvents) -> Unit,
 )
