@@ -12,5 +12,8 @@ import androidx.compose.ui.Modifier
 
 interface InvitePeopleRenderer {
     @Composable
-    fun Render(state: InvitePeopleState, modifier: Modifier)
+    fun Render(
+        state: InvitePeopleState,
+        modifier: Modifier,
+    )
 }
