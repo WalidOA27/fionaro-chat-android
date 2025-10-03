@@ -11,7 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 interface AnnouncementService {
-    suspend fun onEnteringSpaceTab()
+    suspend fun showAnnouncement(announcement: Announcement)
 
     @Composable
     fun Render(
