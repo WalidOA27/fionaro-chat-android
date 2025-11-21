@@ -7,6 +7,9 @@
 
 package io.element.android.libraries.architecture.navigation
 
+/**
+ * Base navigator interface to be implemented by nodes to handle navigation actions from presenters.
+ */
 fun interface BaseNavigator {
     fun close()
 }
