@@ -9,6 +9,7 @@
 package io.element.android.libraries.designsystem.preview
 
 import androidx.compose.runtime.Composable
+import io.element.android.compound.theme.Theme
 
 @Composable
 fun ElementPreviewLight(
@@ -16,7 +17,7 @@ fun ElementPreviewLight(
     content: @Composable () -> Unit
 ) {
     ElementPreview(
-        darkTheme = false,
+        theme = Theme.Light,
         showBackground = showBackground,
         content = content
     )
