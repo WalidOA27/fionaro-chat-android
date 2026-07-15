@@ -24,7 +24,7 @@ interface VoicePlayerStore {
 class PreferencesVoicePlayerStore(
     preferenceDataStoreFactory: PreferenceDataStoreFactory,
 ) : VoicePlayerStore {
-    private val store = preferenceDataStoreFactory.create("elementx_voice_player")
+    private val store = preferenceDataStoreFactory.create("fionaro_voice_player")
     private val playbackSpeedIndex = intPreferencesKey("playback_speed_index")
 
     override fun playBackSpeedIndex(): Flow<Int> {

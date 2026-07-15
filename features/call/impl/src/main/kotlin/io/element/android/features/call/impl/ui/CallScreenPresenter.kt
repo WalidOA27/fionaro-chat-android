@@ -28,6 +28,7 @@ import io.element.android.features.call.impl.data.WidgetMessage
 import io.element.android.features.call.impl.utils.ActiveCallManager
 import io.element.android.features.call.impl.utils.CallWidgetProvider
 import io.element.android.features.call.impl.utils.WidgetMessageInterceptor
+import io.element.android.features.call.impl.utils.WebViewWidgetMessageInterceptor
 import io.element.android.features.call.impl.utils.WidgetMessageSerializer
 import io.element.android.libraries.architecture.AsyncData
 import io.element.android.libraries.architecture.Presenter
@@ -86,14 +87,16 @@ class CallScreenPresenter(
         val languageTag = languageTagProvider.provideLanguageTag()
         val theme = if (ElementTheme.isLightTheme) "light" else "dark"
 
+        var preCreatedRoomId by rememberSaveable { mutableStateOf<String?>(null) }
+
         DisposableEffect(Unit) {
             coroutineScope.launch {
-                // Sets the call as joined
                 activeCallManager.joinedCall(callData)
                 fetchRoomCallUrl(
                     callData = callData,
                     urlState = urlState,
                     callWidgetDriver = callWidgetDriver,
+                    preCreatedRoomId = { preCreatedRoomId = it },
                     languageTag = languageTag,
                     theme = theme,
                 )
@@ -176,6 +179,11 @@ class CallScreenPresenter(
                 }
                 is CallScreenEvent.SetupMessageChannels -> {
                     messageInterceptor.value = event.widgetMessageInterceptor
+                    (event.widgetMessageInterceptor as? WebViewWidgetMessageInterceptor)?.let {
+                        it.matrixClientProvider = matrixClientsProvider
+                        it.callSessionId = callData.sessionId.value
+                        it.preCreatedRoomId = preCreatedRoomId
+                    }
                 }
                 is CallScreenEvent.OnWebViewError -> {
                     if (!ignoreWebViewError) {
@@ -199,6 +207,7 @@ class CallScreenPresenter(
         callData: CallData,
         urlState: MutableState<AsyncData<String>>,
         callWidgetDriver: MutableState<MatrixWidgetDriver?>,
+        preCreatedRoomId: (String?) -> Unit,
         languageTag: String?,
         theme: String?,
     ) {
@@ -212,6 +221,7 @@ class CallScreenPresenter(
                 theme = theme,
             ).getOrThrow()
             callWidgetDriver.value = result.driver
+            preCreatedRoomId(result.preCreatedRoomId)
             Timber.d("Call widget driver initialized for sessionId: ${callData.sessionId}, roomId: ${callData.roomId}")
             result.url
         }

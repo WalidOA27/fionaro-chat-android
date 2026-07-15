@@ -22,7 +22,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.CopyOnWriteArrayList
 
-internal const val SECRET_KEY_ALIAS = "elementx.SECRET_KEY_ALIAS_PIN_CODE"
+internal const val SECRET_KEY_ALIAS = "fionaro.SECRET_KEY_ALIAS_PIN_CODE"
 
 @ContributesBinding(AppScope::class)
 @SingleIn(AppScope::class)

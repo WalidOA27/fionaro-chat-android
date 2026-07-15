@@ -95,6 +95,12 @@ android {
             storePassword = System.getenv("ELEMENT_ANDROID_NIGHTLY_STOREPASSWORD")
                 ?: project.property("signing.element.nightly.storePassword") as? String?
         }
+        register("release") {
+            storeFile = file(System.getenv("FIONARO_KEYSTORE_PATH") ?: "./signature/debug.keystore")
+            storePassword = System.getenv("FIONARO_KEYSTORE_PASSWORD") ?: ""
+            keyAlias = "fionaro-chat"
+            keyPassword = System.getenv("FIONARO_KEY_PASSWORD") ?: ""
+        }
     }
 
     val baseAppName = BuildTimeConfig.APPLICATION_NAME
@@ -102,7 +108,7 @@ android {
     logger.warnInBox("Building ${defaultConfig.applicationId} ($baseAppName) [$buildType]")
 
     buildTypes {
-        val oAuthRedirectSchemeBase = BuildTimeConfig.METADATA_HOST_REVERSED ?: "io.element.android"
+        val oAuthRedirectSchemeBase = BuildTimeConfig.METADATA_HOST_REVERSED ?: "pw.fionaro.chat"
         getByName("debug") {
             resValue("string", "app_name", "$baseAppName dbg")
             resValue(
@@ -121,7 +127,7 @@ android {
                 "login_redirect_scheme",
                 oAuthRedirectSchemeBase,
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
 
             optimization {
                 enable = true

@@ -219,4 +219,13 @@ interface JoinedRoom : BaseRoom {
      * the user's display name across all of their rooms.
      */
     suspend fun setOwnMemberDisplayName(displayName: String): Result<Unit>
+
+    /**
+     * Send a raw state event to the room.
+     * @param eventType The type of the state event (e.g. "org.matrix.msc3401.call.member").
+     * @param stateKey The state key for the event.
+     * @param content The JSON content of the event.
+     * @return Result containing the [EventId] on success.
+     */
+    suspend fun sendStateEvent(eventType: String, stateKey: String, content: String): Result<EventId>
 }

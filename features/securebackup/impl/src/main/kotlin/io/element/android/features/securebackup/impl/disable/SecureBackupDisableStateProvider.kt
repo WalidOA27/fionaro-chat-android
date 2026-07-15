@@ -29,6 +29,6 @@ fun aSecureBackupDisableState(
 ) = SecureBackupDisableState(
     backupState = backupState,
     disableAction = disableAction,
-    appName = "Element",
+    appName = "Fionaro Chat",
     eventSink = {}
 )

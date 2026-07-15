@@ -32,11 +32,14 @@ object ModulesConfig {
             println("Analytics disabled")
             AnalyticsConfig.Disabled
         }
-    } else {
+    } else if (BuildTimeConfig.APPLICATION_ID.startsWith("io.element.android.x")) {
         println("Analytics enabled with Posthog and Sentry")
         AnalyticsConfig.Enabled(
             withPosthog = true,
             withSentry = true,
         )
+    } else {
+        println("Analytics disabled (non-Element build)")
+        AnalyticsConfig.Disabled
     }
 }

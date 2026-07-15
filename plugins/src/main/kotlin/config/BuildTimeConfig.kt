@@ -9,19 +9,19 @@
 package config
 
 object BuildTimeConfig {
-    const val APPLICATION_ID = "io.element.android.x"
-    const val APPLICATION_NAME = "Element X"
-    const val GOOGLE_APP_ID_RELEASE = "1:912726360885:android:d097de99a4c23d2700427c"
-    const val GOOGLE_APP_ID_DEBUG = "1:912726360885:android:def0a4e454042e9b00427c"
-    const val GOOGLE_APP_ID_NIGHTLY = "1:912726360885:android:e17435e0beb0303000427c"
+    const val APPLICATION_ID = "pw.fionaro.chat"
+    const val APPLICATION_NAME = "Fionaro Chat"
+    const val GOOGLE_APP_ID_RELEASE = ""
+    const val GOOGLE_APP_ID_DEBUG = ""
+    const val GOOGLE_APP_ID_NIGHTLY = ""
 
-    val METADATA_HOST_REVERSED: String? = null
-    val URL_WEBSITE: String? = null
-    val URL_LOGO: String? = null
-    val URL_COPYRIGHT: String? = null
-    val URL_ACCEPTABLE_USE: String? = null
-    val URL_PRIVACY: String? = null
-    val URL_POLICY: String? = null
+    val METADATA_HOST_REVERSED: String? = "pw.fionaro.chat"
+    val URL_WEBSITE: String? = "https://fionaro.pw"
+    val URL_LOGO: String? = "https://fionaro.pw/logo.png"
+    val URL_COPYRIGHT: String? = "https://fionaro.pw/copyright"
+    val URL_ACCEPTABLE_USE: String? = "https://fionaro.pw/terms"
+    val URL_PRIVACY: String? = "https://fionaro.pw/privacy"
+    val URL_POLICY: String? = "https://fionaro.pw/cookies"
     val SERVICES_MAPTILER_BASE_URL: String? = null
     val SERVICES_MAPTILER_APIKEY: String? = null
     val SERVICES_MAPTILER_LIGHT_MAPID: String? = null
@@ -33,6 +33,6 @@ object BuildTimeConfig {
     val BUG_REPORT_URL: String? = null
     val BUG_REPORT_APP_NAME: String? = null
 
-    const val PUSH_CONFIG_INCLUDE_FIREBASE = true
+    const val PUSH_CONFIG_INCLUDE_FIREBASE = false
     const val PUSH_CONFIG_INCLUDE_UNIFIED_PUSH = true
 }

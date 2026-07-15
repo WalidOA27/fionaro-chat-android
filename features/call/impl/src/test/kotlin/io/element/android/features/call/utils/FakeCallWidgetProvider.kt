@@ -33,6 +33,7 @@ class FakeCallWidgetProvider(
             CallWidgetProvider.GetWidgetResult(
                 driver = widgetDriver,
                 url = url,
+                preCreatedRoomId = null,
             )
         )
     }

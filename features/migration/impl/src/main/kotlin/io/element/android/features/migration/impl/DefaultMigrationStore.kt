@@ -22,7 +22,7 @@ private val applicationMigrationVersion = intPreferencesKey("applicationMigratio
 class DefaultMigrationStore(
     preferenceDataStoreFactory: PreferenceDataStoreFactory,
 ) : MigrationStore {
-    private val store = preferenceDataStoreFactory.create("elementx_migration")
+    private val store = preferenceDataStoreFactory.create("fionaro_migration")
 
     override suspend fun setApplicationMigrationVersion(version: Int) {
         store.edit { prefs ->

@@ -477,7 +477,15 @@ class JoinedRustRoom(
                 room = innerRoom,
                 widgetCapabilitiesProvider = object : WidgetCapabilitiesProvider {
                     override fun acquireCapabilities(capabilities: WidgetCapabilities): WidgetCapabilities {
-                        return getElementCallRequiredPermissions(sessionId.value, baseRoom.deviceId.value)
+                        return try {
+                            getElementCallRequiredPermissions(sessionId.value, baseRoom.deviceId.value)
+                        } catch (e: Exception) {
+                            if (e.message?.contains("MISSING_MATRIX_RTC_TRANSPORT") == true) {
+                                capabilities
+                            } else {
+                                throw e
+                            }
+                        }
                     }
                 },
             )
@@ -559,6 +567,12 @@ class JoinedRustRoom(
         runCatchingExceptions {
             innerRoom.setOwnMemberDisplayName(displayName)
         }
+    }
+
+    override suspend fun sendStateEvent(eventType: String, stateKey: String, content: String): Result<EventId> = withContext(roomDispatcher) {
+        runCatchingExceptions {
+            innerRoom.sendStateEventRaw(eventType, stateKey, content)
+        }.map(::EventId)
     }
 
     override fun close() = destroy()

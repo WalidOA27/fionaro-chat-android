@@ -151,7 +151,7 @@ fun aMessagesState(
     showReinvitePrompt = showReinvitePrompt,
     enableTextFormatting = true,
     roomCallState = roomCallState,
-    appName = "Element",
+    appName = "Fionaro Chat",
     pinnedMessagesBannerState = pinnedMessagesBannerState,
     dmUserVerificationState = dmUserVerificationState,
     roomMemberModerationState = roomMemberModerationState,

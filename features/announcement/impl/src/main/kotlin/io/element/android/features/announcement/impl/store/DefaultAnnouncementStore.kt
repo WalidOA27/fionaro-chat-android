@@ -24,7 +24,7 @@ private val newNotificationSoundKey = intPreferencesKey("newNotificationSound")
 class DefaultAnnouncementStore(
     preferenceDataStoreFactory: PreferenceDataStoreFactory,
 ) : AnnouncementStore {
-    private val store = preferenceDataStoreFactory.create("elementx_announcement")
+    private val store = preferenceDataStoreFactory.create("fionaro_announcement")
 
     override suspend fun setAnnouncementStatus(announcement: Announcement, status: AnnouncementStatus) {
         val key = announcement.toKey()

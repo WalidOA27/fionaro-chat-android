@@ -51,7 +51,7 @@ class DefaultCallWidgetSettingsProvider(
             rageshakeSubmitUrl = callAnalyticsCredentialsProvider.rageshakeSubmitUrl,
             sentryDsn = callAnalyticsCredentialsProvider.sentryDsn.takeIf { isAnalyticsEnabled },
             sentryEnvironment = if (buildMeta.buildType == BuildType.RELEASE) "RELEASE" else "DEBUG",
-            parentUrl = null,
+            parentUrl = baseUrl,
         )
         val config = VirtualElementCallWidgetConfig(
 //            // TODO remove this once we have the next EC version

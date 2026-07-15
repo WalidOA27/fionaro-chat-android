@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
-private const val ELEMENT_X_TARGET = "elementx"
+private const val ELEMENT_X_TARGET = "fionaro"
 
 class PlatformInitializer : Initializer<Unit> {
     override fun create(context: Context) {

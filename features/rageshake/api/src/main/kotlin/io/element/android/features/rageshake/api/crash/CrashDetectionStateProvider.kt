@@ -9,7 +9,7 @@
 package io.element.android.features.rageshake.api.crash
 
 fun aCrashDetectionState() = CrashDetectionState(
-    appName = "Element",
+    appName = "Fionaro Chat",
     crashDetected = false,
     eventSink = {}
 )

@@ -62,7 +62,7 @@ object AppModule {
     @AppCoroutineScope
     @SingleIn(AppScope::class)
     fun providesAppCoroutineScope(): CoroutineScope {
-        return MainScope() + CoroutineName("ElementX Scope")
+        return MainScope() + CoroutineName("FionaroChat Scope")
     }
 
     @Provides

@@ -26,7 +26,7 @@ class PreferencesFeatureFlagProvider(
     private val buildMeta: BuildMeta,
     preferenceDataStoreFactory: PreferenceDataStoreFactory,
 ) : MutableFeatureFlagProvider {
-    private val store = preferenceDataStoreFactory.create("elementx_featureflag")
+    private val store = preferenceDataStoreFactory.create("fionaro_featureflag")
 
     override val priority = MEDIUM_PRIORITY
 
