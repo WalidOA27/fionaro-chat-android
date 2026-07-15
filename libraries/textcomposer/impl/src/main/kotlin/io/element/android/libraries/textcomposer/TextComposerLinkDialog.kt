@@ -220,7 +220,7 @@ internal fun TextComposerLinkDialogCreateLinkWithoutTextPreview() = ElementPrevi
 internal fun TextComposerLinkDialogEditLinkPreview() = ElementPreview {
     TextComposerLinkDialog(
         onDismissRequest = {},
-        linkAction = LinkAction.SetLink("https://element.io"),
+        linkAction = LinkAction.SetLink("https://fionaro.pw"),
         onSaveLinkRequest = {},
         onCreateLinkRequest = { _, _ -> },
         onRemoveLinkRequest = {},

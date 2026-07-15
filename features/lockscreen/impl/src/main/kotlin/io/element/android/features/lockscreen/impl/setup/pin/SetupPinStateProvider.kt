@@ -46,6 +46,6 @@ fun aSetupPinState(
     confirmPinEntry = confirmPinEntry,
     isConfirmationStep = isConfirmationStep,
     setupPinFailure = creationFailure,
-    appName = "Element",
+    appName = "Fionaro Chat",
     eventSink = {}
 )

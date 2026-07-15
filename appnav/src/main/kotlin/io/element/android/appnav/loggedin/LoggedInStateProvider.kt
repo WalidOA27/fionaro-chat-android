@@ -26,7 +26,7 @@ fun aLoggedInState(
     showSyncSpinner: Boolean = false,
     pusherRegistrationState: AsyncData<Unit> = AsyncData.Uninitialized,
     forceNativeSlidingSyncMigration: Boolean = false,
-    appName: String = "Element X",
+    appName: String = "Fionaro Chat",
 ) = LoggedInState(
     showSyncSpinner = showSyncSpinner,
     pusherRegistrationState = pusherRegistrationState,

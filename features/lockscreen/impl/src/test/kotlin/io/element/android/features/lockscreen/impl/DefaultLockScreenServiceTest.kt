@@ -52,7 +52,7 @@ class DefaultLockScreenServiceTest {
             secretKeyRepository.getOrCreateKey(SECRET_KEY_ALIAS, true)
             assertThat(awaitItem()).isFalse()
             // Users deletes the pin code
-            secretKeyRepository.deleteKey("elementx.SECRET_KEY_ALIAS_PIN_CODE")
+            secretKeyRepository.deleteKey("fionaro.SECRET_KEY_ALIAS_PIN_CODE")
             assertThat(awaitItem()).isTrue()
         }
     }

@@ -22,7 +22,7 @@ open class OnBoardingStateProvider : PreviewParameterProvider<OnBoardingState> {
             anOnBoardingState(canCreateAccount = true),
             anOnBoardingState(canLoginWithQrCode = true, canCreateAccount = true),
             anOnBoardingState(canLoginWithQrCode = true, canCreateAccount = true, canReportBug = true),
-            anOnBoardingState(defaultAccountProvider = "element.io", canCreateAccount = false, canReportBug = true),
+            anOnBoardingState(defaultAccountProvider = "fionaro.pw", canCreateAccount = false, canReportBug = true),
             anOnBoardingState(customLogoResId = R.drawable.sample_background),
             anOnBoardingState(
                 isAddingAccount = true,
@@ -40,7 +40,7 @@ fun anOnBoardingState(
     isAddingAccount: Boolean = false,
     showBackButton: Boolean = false,
     showDeveloperSettings: Boolean = false,
-    productionApplicationName: String = "Element",
+    productionApplicationName: String = "Fionaro Chat",
     defaultAccountProvider: String? = null,
     mustChooseAccountProvider: Boolean = false,
     canLoginWithQrCode: Boolean = false,

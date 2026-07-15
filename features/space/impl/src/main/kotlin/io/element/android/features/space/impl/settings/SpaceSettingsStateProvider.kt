@@ -24,9 +24,9 @@ open class SpaceSettingsStateProvider : PreviewParameterProvider<SpaceSettingsSt
 }
 
 fun aSpaceSettingsState(
-    roomId: RoomId = RoomId("!aRoomId:element.io"),
+    roomId: RoomId = RoomId("!aRoomId:fionaro.pw"),
     name: String = SPACE_NAME,
-    alias: RoomAlias? = RoomAlias("#spacename:element.io"),
+    alias: RoomAlias? = RoomAlias("#spacename:fionaro.pw"),
     avatarUrl: String? = null,
     memberCount: Long = 100,
     showRolesAndPermissions: Boolean = false,

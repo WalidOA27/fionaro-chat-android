@@ -26,7 +26,7 @@ open class QrCodeScanStateProvider : PreviewParameterProvider<QrCodeScanState> {
                 authenticationAction = AsyncAction.Failure(
                     AccountProviderAccessException.UnauthorizedAccountProviderException(
                         unauthorisedAccountProviderTitle = "example.com",
-                        authorisedAccountProviderTitles = listOf("element.io", "element.org"),
+                        authorisedAccountProviderTitles = listOf("fionaro.pw", "fionaro.com"),
                     )
                 )
             ),

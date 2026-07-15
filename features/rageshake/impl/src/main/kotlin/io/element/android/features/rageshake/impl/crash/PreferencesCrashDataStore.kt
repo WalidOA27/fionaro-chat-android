@@ -26,7 +26,7 @@ private val crashDataKey = stringPreferencesKey("crashData")
 class PreferencesCrashDataStore(
     preferenceDataStoreFactory: PreferenceDataStoreFactory,
 ) : CrashDataStore {
-    private val store = preferenceDataStoreFactory.create("elementx_crash")
+    private val store = preferenceDataStoreFactory.create("fionaro_crash")
 
     override fun setCrashData(crashData: String) {
         // Must block

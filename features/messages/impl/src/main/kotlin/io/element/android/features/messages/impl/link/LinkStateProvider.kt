@@ -20,7 +20,7 @@ open class LinkStateProvider : PreviewParameterProvider<LinkState> {
                 linkClick = ConfirmingLinkClick(
                     Link(
                         url = "https://evil.io",
-                        text = "https://element.io"
+                        text = "https://fionaro.pw"
                     ),
                 ),
             ),

@@ -38,7 +38,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.util.concurrent.CopyOnWriteArrayList
 
-private const val SECRET_KEY_ALIAS = "elementx.SECRET_KEY_ALIAS_BIOMETRIC"
+private const val SECRET_KEY_ALIAS = "fionaro.SECRET_KEY_ALIAS_BIOMETRIC"
 
 @ContributesBinding(AppScope::class)
 @SingleIn(AppScope::class)

@@ -18,11 +18,11 @@ class ChangeServerErrorProvider : PreviewParameterProvider<ChangeServerError> {
                 messageStr = "An error description",
             ),
             ChangeServerError.NeedElementPro(
-                unauthorisedAccountProviderTitle = "element.io",
+                unauthorisedAccountProviderTitle = "fionaro.pw",
                 applicationId = "io.element.enterprise",
             ),
             ChangeServerError.UnauthorizedAccountProvider(
-                unauthorisedAccountProviderTitle = "element.io",
+                unauthorisedAccountProviderTitle = "fionaro.pw",
                 authorisedAccountProviderTitles = listOf("provider.org", "provider.io"),
             ),
             ChangeServerError.SlidingSyncAlert,

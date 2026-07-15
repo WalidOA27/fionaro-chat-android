@@ -11,6 +11,7 @@ package io.element.android.features.call.impl.ui
 import android.Manifest
 import android.app.PictureInPictureParams
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Rational
@@ -21,6 +22,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -81,6 +83,20 @@ class ElementCallActivity :
 
     private val requestPermissionsLauncher = registerPermissionResultLauncher()
 
+    private val initialMediaPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.values.all { it }
+        if (allGranted) {
+            Timber.tag(loggerTag.value).d("Media permissions granted, loading WebView")
+        } else {
+            Timber.tag(loggerTag.value).w("Media permissions denied, finishing call")
+            finish()
+            return@registerForActivityResult
+        }
+        initCallUi()
+    }
+
     private val webViewTarget = mutableStateOf<CallData?>(null)
 
     private var eventSink: ((CallScreenEvent) -> Unit)? = null
@@ -89,6 +105,7 @@ class ElementCallActivity :
         super.onCreate(savedInstanceState)
 
         bindings<CallBindings>().inject(this)
+        android.util.Log.e("FionaroCall", "onCreate called, webViewTarget=" + webViewTarget.value)
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -109,6 +126,29 @@ class ElementCallActivity :
 
         Timber.d("Created ElementCallActivity with call type: ${webViewTarget.value}")
 
+        ensureMediaPermissionsAndProceed()
+    }
+
+    private fun ensureMediaPermissionsAndProceed() {
+        val neededPermissions = arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO,
+        )
+
+        val allAlreadyGranted = neededPermissions.all { permission ->
+            ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+        }
+
+        if (allAlreadyGranted) {
+            Timber.tag(loggerTag.value).d("Media permissions already granted, loading WebView")
+            initCallUi()
+        } else {
+            Timber.tag(loggerTag.value).d("Requesting media permissions before loading WebView")
+            initialMediaPermissionsLauncher.launch(neededPermissions)
+        }
+    }
+
+    private fun initCallUi() {
         setContent {
             val pipState = pictureInPicturePresenter.present()
             ListenToAndroidEvents(pipState)

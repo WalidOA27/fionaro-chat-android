@@ -25,7 +25,7 @@ private val sensitivityKey = floatPreferencesKey("sensitivity")
 class PreferencesRageshakeDataStore(
     preferenceDataStoreFactory: PreferenceDataStoreFactory,
 ) : RageshakeDataStore {
-    private val store = preferenceDataStoreFactory.create("elementx_rageshake")
+    private val store = preferenceDataStoreFactory.create("fionaro_rageshake")
 
     override fun isEnabled(): Flow<Boolean> {
         return store.data.map { prefs ->

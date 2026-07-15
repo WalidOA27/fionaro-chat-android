@@ -72,7 +72,7 @@ fun RoomAddressField(
 internal fun RoomAddressFieldPreview() = ElementPreview {
     RoomAddressField(
         address = "room",
-        homeserverName = "element.io",
+        homeserverName = "fionaro.pw",
         addressValidity = RoomAddressValidity.Valid,
         onAddressChange = {},
         label = "Room address",
