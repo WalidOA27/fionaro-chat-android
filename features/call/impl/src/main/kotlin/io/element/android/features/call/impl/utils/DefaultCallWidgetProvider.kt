@@ -81,8 +81,8 @@ class DefaultCallWidgetProvider(
             theme = theme,
         ).getOrThrow().replace("appassets.androidplatform.net", "call.fionaro.pw")
 
-        val finalUrl = if (!isDm && !callUrl.contains("skipLobby=true")) {
-            "$callUrl&skipLobby=true"
+        val finalUrl = if (!isDm) {
+            callUrl.replace("call.fionaro.pw/#?", "call.fionaro.pw/room/#?") + "&skipLobby=true"
         } else {
             callUrl
         }
