@@ -47,21 +47,10 @@ class DefaultCallWidgetProvider(
 
         val isDm = originalRoom.isDm()
 
-        val callRoom = if (isDm) {
-            originalRoom
-        } else {
-            val params = CreateRoomParameters(
-                name = null,
-                isEncrypted = false,
-                visibility = RoomVisibility.Private,
-                preset = RoomPreset.PRIVATE_CHAT,
-            )
-            val newRoomId = matrixClient.createRoom(params).getOrThrow()
-            Log.e("FionaroCall", "Pre-created call room: ${newRoomId.value}")
-
-            matrixClient.getJoinedRoom(newRoomId)
-                ?: error("Pre-created room ${newRoomId.value} not found after creation")
-        }
+        // Use the original room as the call room for all calls (DM and group).
+        // This ensures all participants share the same Matrix room for the call,
+        // enabling them to see each other's call.member events and join the same LiveKit session.
+        val callRoom = originalRoom
 
         val customBaseUrl = appPreferencesStore.getCustomElementCallBaseUrlFlow().firstOrNull()
         val baseUrl = customBaseUrl ?: EMBEDDED_CALL_WIDGET_BASE_URL
@@ -81,8 +70,10 @@ class DefaultCallWidgetProvider(
             theme = theme,
         ).getOrThrow().replace("appassets.androidplatform.net", "call.fionaro.pw")
 
+        // Use /room/ path to bypass React Router's "/" (home page) route and hit catch-all "*" -> adt (call view)
+        // Add skipLobby=true to skip lobby and go directly to call view, preventing fet() call.
         val finalUrl = if (!isDm) {
-            callUrl.replace("call.fionaro.pw/#?", "call.fionaro.pw/room/#?")
+            callUrl.replace("call.fionaro.pw/#?", "call.fionaro.pw/room/#?") + "&skipLobby=true"
         } else {
             callUrl
         }
@@ -92,7 +83,7 @@ class DefaultCallWidgetProvider(
         CallWidgetProvider.GetWidgetResult(
             driver = driver,
             url = finalUrl,
-            preCreatedRoomId = if (isDm) null else callRoom.roomId.value,
+            preCreatedRoomId = if (isDm) null else originalRoom.roomId.value,
         )
     }
 }
