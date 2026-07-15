@@ -220,7 +220,6 @@ class WebViewWidgetMessageInterceptor(
                 return WebResourceResponse("text/plain", "UTF-8", 200, "OK", corsHeaders, ByteArrayInputStream(ByteArray(0)))
             }
             if (urlStr.contains("/_matrix/client/v3/createRoom") && matrixClientProvider != null && callSessionId.isNotEmpty()) {
-                android.util.Log.e("FionaroCall", "createRoom intercepted, webView.url=${webView.url}")
                 if (preCreatedRoomId != null) {
                     val json = "{\"room_id\":\"" + preCreatedRoomId + "\"}"
                     android.util.Log.e("FionaroCall", "createRoom intercepted, returning pre-created room: " + json)
