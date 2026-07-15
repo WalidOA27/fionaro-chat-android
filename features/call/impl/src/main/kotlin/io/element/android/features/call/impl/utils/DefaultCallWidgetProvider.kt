@@ -82,7 +82,7 @@ class DefaultCallWidgetProvider(
         ).getOrThrow().replace("appassets.androidplatform.net", "call.fionaro.pw")
 
         val finalUrl = if (!isDm) {
-            callUrl.replace("call.fionaro.pw/#?", "call.fionaro.pw/room/#?") + "&skipLobby=true"
+            callUrl.replace("call.fionaro.pw/#?", "call.fionaro.pw/room/#?")
         } else {
             callUrl
         }
