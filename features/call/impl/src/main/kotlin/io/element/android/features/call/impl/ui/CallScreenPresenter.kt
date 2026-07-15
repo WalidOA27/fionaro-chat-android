@@ -74,6 +74,7 @@ class CallScreenPresenter(
     }
 
     private val userAgent = userAgentProvider.provide()
+    private var callPreCreatedRoomId: String? = null
 
     @Composable
     override fun present(): CallScreenState {
@@ -87,8 +88,6 @@ class CallScreenPresenter(
         val languageTag = languageTagProvider.provideLanguageTag()
         val theme = if (ElementTheme.isLightTheme) "light" else "dark"
 
-        var preCreatedRoomId by rememberSaveable { mutableStateOf<String?>(null) }
-
         DisposableEffect(Unit) {
             coroutineScope.launch {
                 activeCallManager.joinedCall(callData)
@@ -96,7 +95,7 @@ class CallScreenPresenter(
                     callData = callData,
                     urlState = urlState,
                     callWidgetDriver = callWidgetDriver,
-                    preCreatedRoomId = { preCreatedRoomId = it },
+                    messageInterceptor = messageInterceptor,
                     languageTag = languageTag,
                     theme = theme,
                 )
@@ -182,7 +181,7 @@ class CallScreenPresenter(
                     (event.widgetMessageInterceptor as? WebViewWidgetMessageInterceptor)?.let {
                         it.matrixClientProvider = matrixClientsProvider
                         it.callSessionId = callData.sessionId.value
-                        it.preCreatedRoomId = preCreatedRoomId
+                        it.preCreatedRoomId = callPreCreatedRoomId
                     }
                 }
                 is CallScreenEvent.OnWebViewError -> {
@@ -207,7 +206,7 @@ class CallScreenPresenter(
         callData: CallData,
         urlState: MutableState<AsyncData<String>>,
         callWidgetDriver: MutableState<MatrixWidgetDriver?>,
-        preCreatedRoomId: (String?) -> Unit,
+        messageInterceptor: MutableState<WidgetMessageInterceptor?>,
         languageTag: String?,
         theme: String?,
     ) {
@@ -221,8 +220,9 @@ class CallScreenPresenter(
                 theme = theme,
             ).getOrThrow()
             callWidgetDriver.value = result.driver
-            preCreatedRoomId(result.preCreatedRoomId)
-            Timber.d("Call widget driver initialized for sessionId: ${callData.sessionId}, roomId: ${callData.roomId}")
+            callPreCreatedRoomId = result.preCreatedRoomId
+            (messageInterceptor.value as? WebViewWidgetMessageInterceptor)?.preCreatedRoomId = callPreCreatedRoomId
+            Timber.d("Call widget driver initialized for sessionId: ${callData.sessionId}, roomId: ${callData.roomId} preCreatedRoomId=${result.preCreatedRoomId}")
             result.url
         }
     }
