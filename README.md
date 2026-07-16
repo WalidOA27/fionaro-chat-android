@@ -14,13 +14,6 @@ This fork connects exclusively to the Fionaro infrastructure and removes all dep
 
 ## What's Changed
 
-### Branding & Identity
-- Application ID: `pw.fionaro.chat`
-- App name: **Fionaro Chat**
-- All references to "Element" / "Element X" replaced with "Fionaro Chat" / "Fionaro"
-- Package namespaces updated from `io.element.android.*` to `pw.fionaro.chat.*`
-- Icons, strings, and theme colors updated to Fionaro branding
-
 ### Infrastructure & Endpoints
 All Matrix and related endpoints point to the Fionaro infrastructure:
 - Homeserver: `https://matrix.fionaro.pw`
