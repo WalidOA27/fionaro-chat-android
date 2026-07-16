@@ -51,8 +51,8 @@ fun OnboardingBackground() {
                     from = Offset(0f, size.height / 2f),
                     to = Offset(size.width, size.height / 2f),
                     colors = listOf(
-                        Color(0xFF0DBDA8),
-                        if (isLightTheme) Color(0xC90D5CBD) else Color(0xFF0D5CBD),
+                        Color(0xFF7C3AED),
+                        if (isLightTheme) Color(0xC97C3AED) else Color(0xFF4C1D95),
                     )
                 )
             )
