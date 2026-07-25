@@ -123,15 +123,45 @@ class CallScreenPresenter(
         messageInterceptor.value?.let { interceptor ->
             LaunchedEffect(Unit) {
                 interceptor.interceptedMessages
-                    .onEach {
+                    .onEach { message ->
                         // Log all messages from the WebView for diagnostic purposes
-                        android.util.Log.e("FionaroCall", "interceptedMessages: $it")
+                        android.util.Log.e("FionaroCall", "interceptedMessages: $message")
                         // We are receiving messages from the WebView, consider that the application is loaded
                         ignoreWebViewError = true
-                        // Relay message to Widget Driver
-                        callWidgetDriver.value?.send(it)
 
-                        val parsedMessage = parseMessage(it)
+                        // Closed list of EC-specific actions that the Rust SDK widget driver does NOT support.
+                        // These are Element Call actions that the host application MUST handle.
+                        // Source: index-Dul-9Slf.js (aU enum and kj.UpdateAlwaysOnScreen)
+                        val ecActionsNotInSdk = setOf(
+                            "io.element.join",
+                            "im.vector.hangup",
+                            "io.element.close",
+                            "io.element.device_mute",
+                            "set_always_on_screen",
+                        )
+                        val parsedMessage = parseMessage(message)
+                        val isFromWidget = parsedMessage?.direction == WidgetMessage.Direction.FromWidget
+                        // Extract action from raw JSON (more robust than string matching, handles unknown actions)
+                        val rawAction = try {
+                            org.json.JSONObject(message).optString("action")
+                        } catch (_: Exception) { null }
+                        val isEcAction = rawAction != null && rawAction in ecActionsNotInSdk
+
+                        if (isEcAction) {
+                            // Respond with success to the WebView without forwarding to Rust SDK
+                            try {
+                                val json = org.json.JSONObject(message)
+                                json.put("response", org.json.JSONObject("{}"))
+                                interceptor.sendMessage(json.toString())
+                                android.util.Log.e("FionaroCall", "Intercepted EC action (bypassed Rust SDK): $message")
+                            } catch (e: Exception) {
+                                android.util.Log.e("FionaroCall", "Failed to intercept EC action: ${e.message}")
+                            }
+                        } else {
+                            // Forward to Rust SDK for standard widget actions (or toWidget messages)
+                            callWidgetDriver.value?.send(message)
+                        }
+
                         if (parsedMessage?.direction == WidgetMessage.Direction.FromWidget) {
                             if (parsedMessage.action == WidgetMessage.Action.Close) {
                                 close(callWidgetDriver.value, navigator)
