@@ -330,8 +330,8 @@ class WebViewWidgetMessageInterceptor(
     }
 
     override fun sendMessage(message: String) {
-        if (message.contains("\"update_state\"")) {
-            android.util.Log.e("FionaroCall", "sendMessage (native->JS): " + message.take(1000))
+        if (message.contains("\"action\"")) {
+            android.util.Log.e("FionaroCall", "sendMessage (native->JS): " + message.take(2000))
         }
         webView.evaluateJavascript("postMessage($message, '*')", null)
     }

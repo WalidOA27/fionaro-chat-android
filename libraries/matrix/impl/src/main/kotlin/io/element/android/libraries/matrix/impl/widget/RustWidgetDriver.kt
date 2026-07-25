@@ -51,7 +51,10 @@ class RustWidgetDriver(
         receiveMessageJob = coroutineScope.launch(Dispatchers.IO) {
             try {
                 while (isActive) {
-                    driverAndHandle.handle.recv()?.let { incomingMessages.emit(it) }
+                    driverAndHandle.handle.recv()?.let {
+                        android.util.Log.e("FionaroCall", "RustSDK recv response: $it")
+                        incomingMessages.emit(it)
+                    }
                 }
             } finally {
                 driverAndHandle.handle.close()
@@ -61,6 +64,7 @@ class RustWidgetDriver(
 
     override suspend fun send(message: String) {
         try {
+            android.util.Log.e("FionaroCall", "RustSDK send: $message")
             driverAndHandle.handle.send(message)
         } catch (_: IllegalStateException) {
             // The handle is closed, ignore
