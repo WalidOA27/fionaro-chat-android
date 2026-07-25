@@ -39,13 +39,13 @@ private const val versionYear = 26
  * Month of the version on 2 digits. Value must be in [1,12].
  * Do not update this value. it is updated by the release script.
  */
-private const val versionMonth = 6
+private const val versionMonth = 7
 
 /**
  * Release number in the month. Value must be in [0,99].
  * Do not update this value. it is updated by the release script.
  */
-private const val versionReleaseNumber = 4
+private const val versionReleaseNumber = 1
 
 object Versions {
     /**
@@ -53,9 +53,13 @@ object Versions {
      * The value will be modified at build time to add the ABI code when APK are build.
      * AAB will have a ABI code of 0.
      * See comment above for the calculation method.
+     *
+     * Fork override: we use a custom version code to ensure Obtanium sees
+     * our APKs as newer than the upstream Element X (v26.06.4 = 20260604).
+     * 20260701 > 20260604 ✅
      */
     const val VERSION_CODE = (2000 + versionYear) * 10_000 + versionMonth * 100 + versionReleaseNumber
-    val VERSION_NAME = "$versionYear.${versionMonth.toString().padStart(2, '0')}.$versionReleaseNumber"
+    val VERSION_NAME = "1.0." + versionReleaseNumber
 
     /**
      * Compile SDK version. Must be updated when a new Android version is released.
