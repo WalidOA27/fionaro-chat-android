@@ -124,6 +124,8 @@ class CallScreenPresenter(
             LaunchedEffect(Unit) {
                 interceptor.interceptedMessages
                     .onEach {
+                        // Log all messages from the WebView for diagnostic purposes
+                        android.util.Log.e("FionaroCall", "interceptedMessages: $it")
                         // We are receiving messages from the WebView, consider that the application is loaded
                         ignoreWebViewError = true
                         // Relay message to Widget Driver
