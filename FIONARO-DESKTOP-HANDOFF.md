@@ -370,6 +370,38 @@ Logo PNG:           https://fionaro.pw/logo.png
 
 **Long-term:** ntfy should return `rejected: [pushkey]` in the response body. Synapse cron could disable stale pushers. Not implemented.
 
+### DM Detection: StartDM vs ConfigureRoom — "Ring" vs "Notification" Type
+
+**Discovered:** July 2026.
+
+**Root cause:** There are TWO separate code paths for creating 1:1 rooms:
+- **StartDM / createDM** route (`DefaultStartDMAction` → `matrixClient.startDM()` → `createDM()`): sets `isDirect=true`, `preset=TRUSTED_PRIVATE_CHAT`, and the Rust SDK automatically adds the room to `m.direct` account data.
+- **ConfigureRoom / New Room** route (`ConfigureRoomPresenter.createRoom()`): sets `isDirect=false`, `preset=PRIVATE_CHAT`, and **never** touches `m.direct` account data.
+
+The Rust SDK's `DmRoomDefinition::TwoMembers` (configured in `RustMatrixClientFactory.kt:176`) does NOT mean "any room with 2 members is a DM". From the SDK source (`matrix-sdk-base/src/room/mod.rs`):
+
+```rust
+// compute_is_dm()
+DmRoomDefinition::TwoMembers => {
+    if !is_direct { return Ok(false); }  // must be in m.direct first
+    let at_most_two = active_members - service_members <= 2;
+    Ok(at_most_two)
+}
+// is_direct() reads dm_targets, populated from m.direct account data
+```
+
+**Impact:** Rooms created via ConfigureRoom (even 1:1) → `isDm=false` → `intent=START_CALL` (not `START_CALL_DM`) → `sendNotificationType="notification"` instead of `"ring"` → silent notification instead of full-screen ringing call.
+
+**Symptom check:** Query `m.room.power_levels` → `invite: 50` = PRIVATE_CHAT (ConfigureRoom), `invite: 0` = TRUSTED_PRIVATE_CHAT (StartDM).
+
+**Fix:** Use StartDM route for 1:1 rooms. For orphan rooms, manually add to `m.direct` account data. No code changes needed.
+
+**Key files:**
+- `libraries/matrix/impl/.../RustMatrixClientFactory.kt:176` — `DmRoomDefinition.TWO_MEMBERS`
+- `libraries/matrix/impl/.../widget/DefaultCallWidgetSettingsProvider.kt:65-73` — intent selection
+- `features/call/impl/.../utils/DefaultCallWidgetProvider.kt:48-62` — `isDm()` → `direct` param
+- `libraries/matrix/api/.../room/RoomInfo.kt:31-32` — `isDirect` (create event) vs `isDm` (m.direct)
+
 ---
 
 *If something is unclear, check the Android repo's README.md and commit history (especially v0.2.x for debugging iterations of the group call fix, and v1.0.0 for the final solution).*
