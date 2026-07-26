@@ -72,11 +72,8 @@ class DefaultCallWidgetProvider(
 
         // Use /room/ path to bypass React Router's "/" (home page) route and hit catch-all "*" -> adt (call view)
         // Add skipLobby=true to skip lobby and go directly to call view, preventing fet() call.
-        val finalUrl = if (!isDm) {
-            callUrl.replace("call.fionaro.pw/#?", "call.fionaro.pw/room/#?") + "&skipLobby=true"
-        } else {
-            callUrl
-        }
+        // Applied to ALL calls (DM and group). DM calls in EC already assume skipLobby=true by default.
+        val finalUrl = callUrl.replace("call.fionaro.pw/#?", "call.fionaro.pw/room/#?") + "&skipLobby=true"
 
         val driver = callRoom.getWidgetDriver(widgetSettings).getOrThrow()
 
