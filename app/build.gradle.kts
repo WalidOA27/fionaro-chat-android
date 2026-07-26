@@ -96,6 +96,8 @@ android {
                 ?: project.property("signing.element.nightly.storePassword") as? String?
         }
         register("release") {
+            enableV1Signing = true
+            enableV2Signing = true
             storeFile = file(System.getenv("FIONARO_KEYSTORE_PATH") ?: "./signature/debug.keystore")
             storePassword = System.getenv("FIONARO_KEYSTORE_PASSWORD") ?: ""
             keyAlias = "fionaro-chat"
