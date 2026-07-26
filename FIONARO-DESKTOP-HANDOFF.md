@@ -358,4 +358,18 @@ Logo PNG:           https://fionaro.pw/logo.png
 
 ---
 
+## 7. Known Issues
+
+### ntfy Dead Pusher — Silent Push Failure After App Reinstall
+
+**Discovered:** July 2026.
+
+**Root cause:** ntfy's Matrix push gateway returns HTTP 200 OK even when the target UnifiedPush topic no longer exists (e.g., after reinstalling the app, which regenerates the push endpoint). Synapse trusts the 200 response, keeping `enabled=1, failing_since=null` forever.
+
+**Impact:** Any user who reinstalls the app silently stops receiving push for calls. DB fix: re-register the pusher from the app (Settings → Notifications → Reconnect UnifiedPush).
+
+**Long-term:** ntfy should return `rejected: [pushkey]` in the response body. Synapse cron could disable stale pushers. Not implemented.
+
+---
+
 *If something is unclear, check the Android repo's README.md and commit history (especially v0.2.x for debugging iterations of the group call fix, and v1.0.0 for the final solution).*
