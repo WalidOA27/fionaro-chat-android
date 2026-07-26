@@ -61,6 +61,8 @@ class DefaultCallNotificationEventResolver(
         val content = notificationData.content as? NotificationContent.MessageLike.RtcNotification
             ?: throw NotificationResolverException.UnknownError("content is not a call notify")
 
+        android.util.Log.e("FionaroCall", "CallNotify: type=${content.type} room=${notificationData.roomId.value} eventId=${notificationData.eventId?.value}")
+
         val previousRingingCallStatus = appForegroundStateService.hasRingingCall.value
         // We need the sync service working to get the updated room info
         val isRoomCallActive = runCatchingExceptions {
@@ -74,7 +76,10 @@ class DefaultCallNotificationEventResolver(
                     notificationData.roomId
                 ) ?: throw NotificationResolverException.UnknownError("Room ${notificationData.roomId} not found")
                 // Give a few seconds for the room info flow to catch up with the sync, if needed - this is usually instant
+                val startMs = System.currentTimeMillis()
                 val isActive = withTimeoutOrNull(3.seconds) { room.roomInfoFlow.firstOrNull { it.hasRoomCall } }?.hasRoomCall ?: false
+                val elapsedMs = System.currentTimeMillis() - startMs
+                android.util.Log.e("FionaroCall", "CallNotify: type=${content.type} isRoomCallActive=$isActive elapsed=${elapsedMs}ms room=${notificationData.roomId.value}")
 
                 // We no longer need the sync service to be active because of a call notification.
                 appForegroundStateService.updateHasRingingCall(previousRingingCallStatus)
