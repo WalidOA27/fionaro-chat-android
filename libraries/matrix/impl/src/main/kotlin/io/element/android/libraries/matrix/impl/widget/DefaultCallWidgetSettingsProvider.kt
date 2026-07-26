@@ -54,7 +54,11 @@ class DefaultCallWidgetSettingsProvider(
             parentUrl = baseUrl,
         )
         val config = VirtualElementCallWidgetConfig(
-//            // TODO remove this once we have the next EC version
+//            // ⚠️ NO descomentar sin implementar JoinCall en Android.
+//            // Si preload=true, Zut espera io.element.join del padre (vía EU.JoinCall).
+//            // CallScreenPresenter/RustWidgetDriver NO emiten JoinCall hoy → deadlock silencioso.
+//            // Ver: WebViewWidgetMessageInterceptor.createRoom interceptor (preCreatedRoomId cinturón).
+//            // TODO remove this once we have the next EC version + implement JoinCall emisión
 //            preload = false,
 //            // TODO remove this once we have the next EC version
 //            skipLobby = null,
