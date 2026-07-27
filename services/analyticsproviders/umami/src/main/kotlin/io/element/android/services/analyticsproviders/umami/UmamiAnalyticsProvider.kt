@@ -31,6 +31,10 @@ class UmamiAnalyticsProvider() {
         const val HOSTNAME = "fionaro-chat-android"
     }
 
+    init {
+        Timber.tag("Umami").w("UmamiAnalyticsProvider initialized")
+    }
+
     private val executor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "UmamiAnalytics").apply { isDaemon = true }
     }
