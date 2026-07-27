@@ -22,5 +22,6 @@ dependencies {
     implementation(projects.libraries.architecture)
     implementation(projects.libraries.di)
     api(projects.services.analytics.api)
+    implementation(projects.services.analyticsproviders.umami)
     testCommonDependencies(libs)
 }

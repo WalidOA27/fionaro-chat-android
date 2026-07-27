@@ -22,6 +22,7 @@ import io.element.android.services.analytics.api.NoopAnalyticsSdkSpan
 import io.element.android.services.analytics.api.NoopAnalyticsTransaction
 import io.element.android.services.analyticsproviders.api.AnalyticsProvider
 import io.element.android.services.analyticsproviders.api.AnalyticsTransaction
+import io.element.android.services.analyticsproviders.umami.UmamiTracker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
@@ -35,10 +36,10 @@ class NoopAnalyticsService : AnalyticsService {
     override suspend fun setDidAskUserConsent() = Unit
     override val analyticsIdFlow: Flow<String> = flowOf("")
     override suspend fun setAnalyticsId(analyticsId: String) = Unit
-    override fun capture(event: VectorAnalyticsEvent) = Unit
-    override fun screen(screen: VectorAnalyticsScreen) = Unit
+    override fun capture(event: VectorAnalyticsEvent) { UmamiTracker.capture(event) }
+    override fun screen(screen: VectorAnalyticsScreen) { UmamiTracker.screen(screen) }
     override fun updateUserProperties(userProperties: UserProperties) = Unit
-    override fun trackError(throwable: Throwable) = Unit
+    override fun trackError(throwable: Throwable) { UmamiTracker.trackError(throwable) }
     override fun updateSuperProperties(updatedProperties: SuperProperties) = Unit
     override fun startTransaction(name: String, operation: String?, description: String?): AnalyticsTransaction = NoopAnalyticsTransaction
     override fun startLongRunningTransaction(
