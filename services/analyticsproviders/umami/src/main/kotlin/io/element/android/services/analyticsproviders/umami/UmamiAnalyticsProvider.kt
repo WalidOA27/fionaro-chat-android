@@ -8,8 +8,6 @@
 
 package io.element.android.services.analyticsproviders.umami
 
-import dev.zacsweers.metro.AppScope
-import dev.zacsweers.metro.SingleIn
 import im.vector.app.features.analytics.itf.VectorAnalyticsEvent
 import im.vector.app.features.analytics.itf.VectorAnalyticsScreen
 import org.json.JSONObject
@@ -25,7 +23,6 @@ import java.util.concurrent.Executors
  * Unlike PostHog/Sentry, this bypasses the user consent flow because
  * Umami is our own infrastructure with no third-party data sharing.
  */
-@SingleIn(AppScope::class)
 class UmamiAnalyticsProvider() {
 
     private companion object {
