@@ -133,6 +133,45 @@ JAVA_HOME=/usr/lib/jvm/java-21-openjdk \
 - Push notifications via `push.fionaro.pw` (ntfy)
 - TURN via `turn.fionaro.pw` (coturn)
 
+## Admin: Publicar anuncios
+
+Sala de anuncios: `#Anuncios Fionaro:fionaro.pw` (`!cBndmQDEDywPmRQzqI`).
+Todos los usuarios existentes fueron invitados. Cualquiera puede responder.
+
+### Enviar un anuncio (sin compilar)
+
+Ejecutar desde archD:
+
+```bash
+ssh homelab "docker exec matrix_synapse curl -s \
+  -X PUT 'http://localhost:8008/_matrix/client/v3/rooms/!cBndmQDEDywPmRQzqI:fionaro.pw/send/m.room.message/\$(uuidgen)' \
+  -H 'Authorization: Bearer syt_YWRtaW4_DlpsUHAAuqHOUBvdHCEo_49Gddv' \
+  -H 'Content-Type: application/json' \
+  -d '{\"msgtype\":\"m.text\",\"body\":\"TU MENSAJE AQUI\"}'"
+```
+
+### Agregar nuevos usuarios a la sala
+
+```bash
+ssh homelab "docker exec matrix_synapse curl -s \
+  -X POST 'http://localhost:8008/_synapse/admin/v1/join/!cBndmQDEDywPmRQzqI:fionaro.pw' \
+  -H 'Authorization: Bearer syt_YWRtaW4_DlpsUHAAuqHOUBvdHCEo_49Gddv' \
+  -H 'Content-Type: application/json' \
+  -d '{\"user_id\":\"@nuevo_usuario:fionaro.pw\"}'"
+```
+
+### Modo solo-admin (avisos, sin respuestas)
+
+```bash
+ssh homelab "docker exec matrix_synapse curl -s \
+  -X PUT 'http://localhost:8008/_matrix/client/v3/rooms/!cBndmQDEDywPmRQzqI:fionaro.pw/state/m.room.power_levels' \
+  -H 'Authorization: Bearer syt_YWRtaW4_DlpsUHAAuqHOUBvdHCEo_49Gddv' \
+  -H 'Content-Type: application/json' \
+  -d '{\"events_default\":50}'"
+```
+
+Para reactivar respuestas: `\"events_default\":0`.
+
 ## License
 
 This fork inherits the dual license of Element X Android:
