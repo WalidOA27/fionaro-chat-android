@@ -471,14 +471,35 @@ post /sfu/get ──────► jwt service ──► resolve openid via Fed
                                       ▼
                  LiveKit creates room with correct participant identities
                                       │
-           ❌ BUG: ConnectManager fails participant<->member match
-                                      │
-                                      ▼
-           validIdentities = [] → MatrixAudioRenderer filters ALL tracks
-                                      │
-                                      ▼
-                 Red exclamation on both devices, no audio/video
+           ⚠️ COSMETIC: ConnectManager matching temporarily fails → validIdentities empty → warning logs → red exclamation
+                                       │
+                                       ▼
+                  Audio/video transmission WORKS (confirmed by @luxo).
+                  Red icon = ErrorSolidIcon showing unencryptedWarning (encrypted=false intentional).
 ```
+
+### TODO: Limpiar PostHog y Sentry del build fdroid
+
+**Contexto:** En el build fdroid, `consent` siempre es `true` (no hay diálogo de opt-in).
+`UmamiAnalyticsProvider` funciona (nuestro servidor, funciona sin consent),
+pero `PosthogAnalyticsProvider` y `SentryAnalyticsProvider` también están en el
+`Set<AnalyticsProvider>` y reciben todos los `capture()`/`screen()`/`trackError()`.
+
+- **PostHog:** no-op efectivo porque `POSTHOG_APIKEY` está vacío en fdroid →
+  SDK no se inicializa, `capture()` llama a `posthog?.capture()` (null-safe, no-op)
+- **Sentry:** no-op efectivo porque Sentry DSN es `null` en fdroid →
+  `Sentry.isEnabled()` retorna false, `init()` sale temprano
+
+**Overhead real:** mínimo (comprobaciones null-safe), pero innecesario.
+Cada `capture()` itera sobre 2 providers que nunca harán nada útil.
+
+**Acción pendiente:** En `services/analyticsproviders/posthog/src/.../PosthogAnalyticsProvider.kt:26`
+(`@ContributesIntoSet`) y `services/analyticsproviders/sentry/src/.../SentryAnalyticsProvider.kt:38`
+(`@ContributesIntoSet`), hacer la anotación condicional via `AnalyticsConfig` para que en fdroid
+solo se registre `UmamiAnalyticsProvider`.
+
+**Alternativa:** Mantenerlos (overhead insignificante) y documentar que son intencionalmente
+inactivos en fdroid hasta que se necesiten en un build enterprise futuro.
 
 ### Files Modified This Session
 
