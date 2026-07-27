@@ -29,7 +29,7 @@ object UmamiTracker {
     }
 
     fun screen(screen: VectorAnalyticsScreen) {
-        sendUmami(url = "/screen/${screen.getName()}", title = screen.getName())
+        sendUmami(url = "/screen/${screen.getName()}", title = screen.getName(), name = "")
     }
 
     fun trackError(throwable: Throwable) {
@@ -52,7 +52,7 @@ object UmamiTracker {
                     put("url", url)
                     put("title", title)
                     put("website", UMAMI_WEBSITE_ID)
-                    put("name", name)
+                    if (name.isNotEmpty()) put("name", name)
                     if (data.isNotEmpty()) put("data", JSONObject(data))
                 }
                 val body = JSONObject().apply {
