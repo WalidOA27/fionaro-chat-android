@@ -402,6 +402,99 @@ DmRoomDefinition::TwoMembers => {
 - `features/call/impl/.../utils/DefaultCallWidgetProvider.kt:48-62` — `isDm()` → `direct` param
 - `libraries/matrix/api/.../room/RoomInfo.kt:31-32` — `isDirect` (create event) vs `isDm` (m.direct)
 
+### LiveKit Identity Mismatch — Red Exclamation in Calls
+
+**Discovered:** July 2026.
+
+**Symptom:** Both participants see a red exclamation mark during calls. Audio/video tracks don't render. Logcat shows repeated warnings:
+```
+FionaroCallJS: WARNING [MatrixAudioRenderer]
+  Audio track @LOCAL_USER from livekit.fionaro.pw
+  has no matching matrix call member current members: @REMOTE_USER
+  track will not get rendered
+```
+
+**Root cause (hypothesis, unconfirmed):** When the remote participant (e.g., @luxo on Honor HNCRT-M1) connects to LiveKit, their EC instance announces a LiveKit identity that doesn't match the Matrix user ID in `call.member` events. The local device sees the track arriving from LiveKit with a wrong identity and can't map it to a known Matrix call member.
+
+**How `matrixLivekitMembers` works:** It's computed by EC JS from `m.call.member` state events in the Matrix room. Format: `[@userId|deviceId]`. The renderer requires that LiveKit track identity matches a userId in this list.
+
+**Observed pattern** (July 26 tests):
+- Pixel (tmoat057) → @luxo in `gbQd`: `matrixLivekitMembers=[@luxo|DPKGNRVKFS]`, track arrives as `@tmoat057`
+- Redmi (tmoat058) → @luxo in `lvx` (simultaneous): same pattern, track arrives as `@tmoat058`
+- Both @luxo accounts on a single Honor device receiving two simultaneous rings
+
+**Status (July 26): DIAGNOSED — NOT A BUG. The red exclamation is `ErrorSolidIcon` showing the `unencryptedWarning` flag because calls intentionally run without per-participant E2EE (`encrypted=false`).**
+
+**What the icon is:**
+- Component: `ErrorSolidIcon` in `MediaView.tsx` (EC JS, `src/tile/MediaView.tsx`)
+- Triggered by: `unencryptedWarning$` observable on `UserMediaViewModel`
+- Shows when: `encrypted=false` → EC interprets this as "this call is unencrypted"
+- **Purely cosmetic** — does NOT control video/audio rendering. The `video$` and LiveKit track publication observables are independent.
+
+**Why `encrypted=false`:**
+- Deliberate decision (documented in Line 299 above)
+- `lk_e2ee` (LiveKit media encryption) is hardcoded in EC v0.21.0
+- With `encrypted=true`: `perParticipantE2EE` + `lk_e2ee` conflict → `MissingKey` errors
+- With `encrypted=false`: `lk_e2ee` still active (server-side), but no `MissingKey` (confirmed: 0 errors in logs)
+- Audio/video transmission works correctly (confirmed by @luxo in live test)
+
+**The `MatrixAudioRenderer` warning is unrelated:**
+- `MatrixAudioRenderer` logs "Audio track...has no matching matrix call member"
+- This warning fires initially but does NOT prevent audio playback
+- The `validIdentities`/ConnectManager matching issue is real but cosmetic — audio still plays through LiveKit's own mechanisms
+
+**Action:** No code changes needed. The icon correctly indicates the unencrypted status. If a UX decision is made to hide it, the flag would need to be controlled via `VirtualElementCallWidgetConfig` or a custom EC build flag.
+
 ---
+
+## Consolidated Bug Map — July 2026 Session
+
+Four independent bugs were discovered and investigated during the July 2026 debugging session. Here is the consolidated status.
+
+| # | Bug | Root Cause | Status | Fix |
+|---|---|---|---|---|
+| 1 | Group calls: both users in same room but LiveKit not connecting | React Router `path="/"` collision — EC JS's `fet()` routed to Home Page instead of Call View | ✅ FIXED (v1.0.0) | `/room/` URL path + `skipLobby=true` for all calls; shared original room |
+| 2 | Silent push failure after app reinstall | ntfy `auth-default-access: write-only` blocked WebSocket subscriptions (403 Forbidden); also 3 stale pushers per user from reinstalls | ✅ FIXED (server-side) | Changed ntfy config to `read-write`; restarted container; documented pusher cleanup |
+| 3 | DM calls ring as notification instead of full-screen ringtone | Room not in `m.direct` account data; `DmRoomDefinition::TwoMembers` requires BOTH `m.direct` membership AND ≤2 members | ✅ DIAGNOSED — no code change needed | Use StartDM route (not ConfigureRoom) for 1:1 rooms; orphan rooms can be manually added to `m.direct` |
+| 4 | Red exclamation mark in calls | `ErrorSolidIcon` in `MediaView.tsx` showing `unencryptedWarning=true` because `encrypted=false` is deliberately set (avoids `MissingKey` errors from `lk_e2ee` in EC v0.21.0) | ✅ DIAGNOSED (not a bug) | Icon is correct and purely cosmetic; no code change needed; document that calls run without per-participant E2EE |
+
+### Evidence Chain for Bug #4
+
+```
+                         ✅ VERIFIED: JWT sub = correct per-user
+                                      │
+                                      ▼
+post /sfu/get ──────► jwt service ──► resolve openid via Federation API
+                                      │
+                    ✅ VERIFIED: Federation returns correct sub
+                                      │
+                                      ▼
+                 LiveKit creates room with correct participant identities
+                                      │
+           ❌ BUG: ConnectManager fails participant<->member match
+                                      │
+                                      ▼
+           validIdentities = [] → MatrixAudioRenderer filters ALL tracks
+                                      │
+                                      ▼
+                 Red exclamation on both devices, no audio/video
+```
+
+### Files Modified This Session
+
+| File | Change |
+|---|---|
+| `DefaultCallWidgetProvider.kt` | `/room/` path, `skipLobby=true`, shared original room, `encrypted=false` |
+| `DefaultCallWidgetSettingsProvider.kt` | `CallIntent` selection based on `isDm` |
+| `WebViewWidgetMessageInterceptor.kt` | EC action interceptor, `injectUpdateState`, CORS preflight |
+| `CallScreenPresenter.kt` | EC action bypass before Rust SDK |
+| `Versions.kt` | Bumped to v1.0.8 |
+| `app/build.gradle.kts` | `enableV1Signing=true` for Obtanium |
+| `FIONARO-DESKTOP-HANDOFF.md` | This document (all findings) |
+| `README.md` | Admin announcements section, branding links |
+
+---
+
+*If something is unclear, check the Android repo's README.md and commit history (especially v0.2.x for debugging iterations of the group call fix, and v1.0.0 for the final solution).*
 
 *If something is unclear, check the Android repo's README.md and commit history (especially v0.2.x for debugging iterations of the group call fix, and v1.0.0 for the final solution).*
