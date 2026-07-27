@@ -39,14 +39,15 @@ private const val versionYear = 26
  * Month of the version on 2 digits. Value must be in [1,12].
  * Do not update this value. it is updated by the release script.
  */
-private const val versionMonth = 8
+private const val versionMonth = 9
+private const val versionMinor = 1
+private const val versionPatch = 0
+private const val versionReleaseNumber = versionPatch
 
 /**
- * Release number in the month. Value must be in [0,99].
+ * (previously versionReleaseNumber — now alias for versionPatch)
  * Do not update this value. it is updated by the release script.
  */
-private const val versionReleaseNumber = 9
-
 object Versions {
     /**
      * Base version code that will be set in the Android Manifest.
@@ -58,8 +59,8 @@ object Versions {
      * our APKs as newer than the upstream Element X (v26.06.4 = 20260604).
      * 20260701 > 20260604 ✅
      */
-    const val VERSION_CODE = (2000 + versionYear) * 10_000 + versionMonth * 100 + versionReleaseNumber
-    val VERSION_NAME = "1.0." + versionReleaseNumber
+    const val VERSION_CODE = (2000 + versionYear) * 10_000 + versionMonth * 100 + versionPatch
+    val VERSION_NAME = "1.$versionMinor.$versionPatch"
 
     /**
      * Compile SDK version. Must be updated when a new Android version is released.

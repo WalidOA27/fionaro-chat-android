@@ -32,6 +32,7 @@ import io.element.android.services.analyticsproviders.api.AnalyticsTransaction
 import io.element.android.services.analyticsproviders.umami.UmamiTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import timber.log.Timber
@@ -49,14 +50,14 @@ class DefaultAnalyticsService(
 ) : AnalyticsService, SessionListener {
     private val pendingLongRunningTransactions = ConcurrentHashMap<AnalyticsLongRunningTransaction, AnalyticsTransaction>()
 
-    // Cache for the store values
-    private val userConsent = AtomicBoolean(false)
+    // Auto-accept analytics (self-hosted Umami, no third parties)
+    private val userConsent = AtomicBoolean(true)
 
     // Cache for the properties to send
     private var pendingUserProperties: UserProperties? = null
 
     override val userConsentFlow: Flow<Boolean> = analyticsStore.userConsentFlow
-    override val didAskUserConsentFlow: Flow<Boolean> = analyticsStore.didAskUserConsentFlow
+    override val didAskUserConsentFlow: Flow<Boolean> = flowOf(true) // Skip opt-in dialog
     override val analyticsIdFlow: Flow<String> = analyticsStore.analyticsIdFlow
 
     init {
