@@ -29,7 +29,7 @@ import io.element.android.services.analytics.impl.log.analyticsTag
 import io.element.android.services.analytics.impl.store.AnalyticsStore
 import io.element.android.services.analyticsproviders.api.AnalyticsProvider
 import io.element.android.services.analyticsproviders.api.AnalyticsTransaction
-import io.element.android.services.analyticsproviders.umami.UmamiAnalyticsProvider
+import io.element.android.services.analyticsproviders.umami.UmamiTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.launchIn
@@ -42,7 +42,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 @ContributesBinding(AppScope::class, binding = binding<AnalyticsService>())
 class DefaultAnalyticsService(
     private val analyticsProviders: Set<@JvmSuppressWildcards AnalyticsProvider>,
-    private val umamiAnalyticsProvider: UmamiAnalyticsProvider,
     private val analyticsStore: AnalyticsStore,
     @AppCoroutineScope private val coroutineScope: CoroutineScope,
     private val sessionObserver: SessionObserver,
@@ -121,7 +120,7 @@ class DefaultAnalyticsService(
 
     override fun capture(event: VectorAnalyticsEvent) {
         Timber.tag(analyticsTag.value).d("capture($event)")
-        umamiAnalyticsProvider.capture(event)
+        UmamiTracker.capture(event)
         if (userConsent.get()) {
             analyticsProviders.onEach { it.capture(event) }
         }
@@ -129,7 +128,7 @@ class DefaultAnalyticsService(
 
     override fun screen(screen: VectorAnalyticsScreen) {
         Timber.tag(analyticsTag.value).d("screen($screen)")
-        umamiAnalyticsProvider.screen(screen)
+        UmamiTracker.screen(screen)
         if (userConsent.get()) {
             analyticsProviders.onEach { it.screen(screen) }
         }
@@ -148,7 +147,7 @@ class DefaultAnalyticsService(
     }
 
     override fun trackError(throwable: Throwable) {
-        umamiAnalyticsProvider.trackError(throwable)
+        UmamiTracker.trackError(throwable)
         if (userConsent.get()) {
             analyticsProviders.onEach { it.trackError(throwable) }
         }
