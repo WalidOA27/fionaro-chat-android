@@ -32,8 +32,9 @@ object ModulesConfig {
             println("Analytics disabled")
             AnalyticsConfig.Disabled
         }
-    } else if (BuildTimeConfig.APPLICATION_ID.startsWith("io.element.android.x")) {
-        println("Analytics enabled with Posthog and Sentry")
+    } else if (BuildTimeConfig.APPLICATION_ID.startsWith("io.element.android.x") ||
+        BuildTimeConfig.APPLICATION_ID == "pw.fionaro.chat") {
+        println("Analytics enabled (PostHog+Sentry placeholders, Umami active)")
         AnalyticsConfig.Enabled(
             withPosthog = true,
             withSentry = true,

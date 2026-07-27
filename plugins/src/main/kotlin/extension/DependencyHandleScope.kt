@@ -134,6 +134,7 @@ fun DependencyHandlerScope.allServicesImpl() {
         }
         is AnalyticsConfig.Enabled -> {
             implementation(project(":services:analytics:impl"))
+            implementation(project(":services:analyticsproviders:umami"))
             if (ModulesConfig.analyticsConfig.withPosthog) {
                 implementation(project(":services:analyticsproviders:posthog"))
             }
