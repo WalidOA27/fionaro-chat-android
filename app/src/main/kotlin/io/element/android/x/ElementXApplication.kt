@@ -41,7 +41,7 @@ class ElementXApplication : Application(), DependencyInjectionGraphOwner, Config
 
         logApplicationInfo(this)
 
-        UmamiTracker.init()
+        UmamiTracker.init(this)
 
         // Disable the strict offset check for anchored draggable components, as it can cause issues with bottom sheets.
         // Remove once https://issuetracker.google.com/issues/477038695 is fixed.
