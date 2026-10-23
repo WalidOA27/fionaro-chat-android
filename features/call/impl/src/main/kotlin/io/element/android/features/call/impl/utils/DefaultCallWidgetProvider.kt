@@ -8,16 +8,12 @@
 
 package io.element.android.features.call.impl.utils
 
-import android.util.Log
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import io.element.android.libraries.core.extensions.runCatchingExceptions
 import io.element.android.libraries.matrix.api.MatrixClientProvider
 import io.element.android.libraries.matrix.api.core.RoomId
 import io.element.android.libraries.matrix.api.core.SessionId
-import io.element.android.libraries.matrix.api.createroom.CreateRoomParameters
-import io.element.android.libraries.matrix.api.createroom.RoomPreset
-import io.element.android.libraries.matrix.api.roomdirectory.RoomVisibility
 import io.element.android.libraries.matrix.api.widget.CallWidgetSettingsProvider
 import io.element.android.libraries.preferences.api.store.AppPreferencesStore
 import io.element.android.services.appnavstate.api.ActiveRoomsHolder
@@ -47,9 +43,9 @@ class DefaultCallWidgetProvider(
 
         val isDm = originalRoom.isDm()
 
-        // Use the original room as the call room for all calls (DM and group).
-        // This ensures all participants share the same Matrix room for the call,
-        // enabling them to see each other's call.member events and join the same LiveKit session.
+        // The call always runs in the original room. The widget driver created below is bound to
+        // this room, so call.member and the other widget state events are written to the room all
+        // participants already share. No room is ever created for a call.
         val callRoom = originalRoom
 
         val customBaseUrl = appPreferencesStore.getCustomElementCallBaseUrlFlow().firstOrNull()
@@ -68,19 +64,22 @@ class DefaultCallWidgetProvider(
             clientId = clientId,
             languageTag = languageTag,
             theme = theme,
-        ).getOrThrow().replace("appassets.androidplatform.net", "call.fionaro.pw")
+        ).getOrThrow()
 
-        // Use /room/ path to bypass React Router's "/" (home page) route and hit catch-all "*" -> adt (call view)
-        // Add skipLobby=true to skip lobby and go directly to call view, preventing fet() call.
-        // Applied to ALL calls (DM and group). DM calls in EC already assume skipLobby=true by default.
-        val finalUrl = callUrl.replace("call.fionaro.pw/#?", "call.fionaro.pw/room/#?") + "&skipLobby=true"
+        // /room/ bypasses React Router's "/" (home page) route and reaches the call view, which
+        // never calls createRoom. skipLobby starts the call immediately.
+        val finalUrl = CallWidgetUrlBuilder.build(callUrl)
 
         val driver = callRoom.getWidgetDriver(widgetSettings).getOrThrow()
 
         CallWidgetProvider.GetWidgetResult(
             driver = driver,
             url = finalUrl,
-            preCreatedRoomId = if (isDm) null else originalRoom.roomId.value,
+            // Element Call may still POST /_matrix/client/v3/createRoom (for example if it ever
+            // renders its home page). The interceptor must answer with the room the call is
+            // already using; it must never create a new room, which is what used to leave one
+            // orphan room behind per call.
+            preCreatedRoomId = originalRoom.roomId.value,
         )
     }
 }
