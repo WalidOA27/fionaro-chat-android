@@ -19,6 +19,11 @@ import io.element.android.libraries.matrix.test.FakeMatrixClient
 import io.element.android.libraries.matrix.ui.components.aMatrixUserList
 import io.element.android.libraries.usersearch.api.UserSearchResult
 import io.element.android.libraries.usersearch.test.FakeUserListDataSource
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -33,6 +38,161 @@ internal class MatrixUserRepositoryTest {
         val result = repository.search("x")
 
         result.test {
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun `search - emits nothing if the search query is blank`() = runTest {
+        val dataSource = FakeUserListDataSource()
+        val repository = MatrixUserRepository(FakeMatrixClient(SESSION_ID), dataSource)
+
+        val result = repository.search("   ")
+
+        result.test {
+            awaitComplete()
+        }
+        assertThat(dataSource.searchCallCount).isEqualTo(0)
+    }
+
+    @Test
+    fun `search - trims the query before searching`() = runTest {
+        val userProfile = MatrixUser(userId = A_USER_ID, displayName = A_USER_NAME)
+        val dataSource = FakeUserListDataSource()
+        dataSource.givenSearchResult(emptyList())
+        dataSource.givenUserProfile(userProfile)
+        val repository = MatrixUserRepository(FakeMatrixClient(SESSION_ID), dataSource)
+        val query = "  ${A_USER_ID.value}  "
+
+        val result = repository.search(query)
+
+        result.test {
+            skipItems(1)
+            val state = awaitItem()
+            assertThat(state.query).isEqualTo(query)
+            assertThat(state.results).isEqualTo(listOf(UserSearchResult(userProfile)))
+            awaitComplete()
+        }
+        assertThat(dataSource.lastSearchQuery).isEqualTo(A_USER_ID.value)
+        assertThat(dataSource.lastProfileUserId).isEqualTo(A_USER_ID)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `search - debounces directory requests`() = runTest {
+        val dataSource = FakeUserListDataSource()
+        val repository = MatrixUserRepository(FakeMatrixClient(SESSION_ID), dataSource)
+
+        val job = launch { repository.search("some query").collect() }
+        runCurrent()
+        assertThat(dataSource.searchCallCount).isEqualTo(0)
+
+        advanceTimeBy(249)
+        runCurrent()
+        assertThat(dataSource.searchCallCount).isEqualTo(0)
+
+        advanceTimeBy(2)
+        runCurrent()
+        assertThat(dataSource.searchCallCount).isEqualTo(1)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `search - returns the profile result when the directory is empty for an mxid`() = runTest {
+        val userProfile = MatrixUser(userId = A_USER_ID, displayName = A_USER_NAME)
+        val dataSource = FakeUserListDataSource()
+        dataSource.givenSearchResult(emptyList())
+        dataSource.givenUserProfile(userProfile)
+        val repository = MatrixUserRepository(FakeMatrixClient(SESSION_ID), dataSource)
+
+        val result = repository.search(A_USER_ID.value)
+
+        result.test {
+            assertThat(awaitItem().results).isEqualTo(listOf(placeholderResult()))
+            assertThat(awaitItem().results).isEqualTo(listOf(UserSearchResult(userProfile)))
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun `search - emits an unresolved profile result when the directory is empty for an mxid`() = runTest {
+        val dataSource = FakeUserListDataSource()
+        dataSource.givenSearchResult(emptyList())
+        dataSource.givenUserProfile(null)
+        val repository = MatrixUserRepository(FakeMatrixClient(SESSION_ID), dataSource)
+
+        val result = repository.search(A_USER_ID.value)
+
+        result.test {
+            skipItems(1)
+            assertThat(awaitItem().results).isEqualTo(listOf(placeholderResult(isUnresolved = true)))
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun `search - emits a terminal state if the directory request fails`() = runTest {
+        val dataSource = FakeUserListDataSource()
+        dataSource.givenSearchFailure(RuntimeException("Directory unavailable"))
+        val repository = MatrixUserRepository(FakeMatrixClient(SESSION_ID), dataSource)
+
+        val result = repository.search("some query")
+
+        result.test {
+            assertThat(awaitItem().isSearching).isTrue()
+            val terminalState = awaitItem()
+            assertThat(terminalState.isSearching).isFalse()
+            assertThat(terminalState.results).isEmpty()
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun `search - falls back to the profile if the directory request fails for an mxid`() = runTest {
+        val userProfile = MatrixUser(userId = A_USER_ID, displayName = A_USER_NAME)
+        val dataSource = FakeUserListDataSource()
+        dataSource.givenSearchFailure(RuntimeException("Directory unavailable"))
+        dataSource.givenUserProfile(userProfile)
+        val repository = MatrixUserRepository(FakeMatrixClient(SESSION_ID), dataSource)
+
+        val result = repository.search(A_USER_ID.value)
+
+        result.test {
+            skipItems(1)
+            assertThat(awaitItem().results).isEqualTo(listOf(UserSearchResult(userProfile)))
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun `search - uses the unresolved result if the profile request fails`() = runTest {
+        val dataSource = FakeUserListDataSource()
+        dataSource.givenSearchResult(emptyList())
+        dataSource.givenProfileFailure(RuntimeException("Profile unavailable"))
+        val repository = MatrixUserRepository(FakeMatrixClient(SESSION_ID), dataSource)
+
+        val result = repository.search(A_USER_ID.value)
+
+        result.test {
+            skipItems(1)
+            assertThat(awaitItem().results).isEqualTo(listOf(placeholderResult(isUnresolved = true)))
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun `search - removes duplicate results`() = runTest {
+        val user = aMatrixUserList().first()
+        val dataSource = FakeUserListDataSource()
+        dataSource.givenSearchResult(listOf(user, user))
+        val repository = MatrixUserRepository(FakeMatrixClient(SESSION_ID), dataSource)
+
+        val result = repository.search("some query")
+
+        result.test {
+            skipItems(1)
+            assertThat(awaitItem().results).isEqualTo(listOf(UserSearchResult(user)))
             awaitComplete()
         }
     }

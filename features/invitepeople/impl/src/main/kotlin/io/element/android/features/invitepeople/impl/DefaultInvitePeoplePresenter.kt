@@ -52,6 +52,7 @@ import io.element.android.libraries.matrix.api.roomdirectory.RoomVisibility
 import io.element.android.libraries.matrix.api.user.MatrixUser
 import io.element.android.libraries.ui.strings.CommonStrings
 import io.element.android.libraries.usersearch.api.UserRepository
+import io.element.android.libraries.usersearch.api.collectSearchStates
 import io.element.android.services.apperror.api.AppErrorStateService
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -59,12 +60,9 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.filterNot
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val MAX_SUGGESTIONS_COUNT = 5
 
@@ -169,7 +167,7 @@ class DefaultInvitePeoplePresenter(
             }
         }
         val searchQuery = queryState.text.toString()
-        LaunchedEffect(searchQuery, roomMembers) {
+        LaunchedEffect(searchQuery) {
             performSearch(
                 searchResults = searchResults,
                 roomMembers = roomMembers,
@@ -331,12 +329,12 @@ class DefaultInvitePeoplePresenter(
         selectedUsers: MutableState<ImmutableList<MatrixUser>>,
         showSearchLoader: MutableState<Boolean>,
         searchQuery: String,
-    ) = withContext(coroutineDispatchers.io) {
+    ) {
         searchResults.value = SearchBarResultState.Initial()
         showSearchLoader.value = false
-        val joinedMembers = roomMembers.value.dataOrNull().orEmpty()
 
-        userRepository.search(searchQuery).onEach { state ->
+        userRepository.collectSearchStates(searchQuery) { state ->
+            val joinedMembers = roomMembers.value.dataOrNull().orEmpty()
             showSearchLoader.value = state.isSearching
             searchResults.value = when {
                 state.results.isEmpty() && state.isSearching -> SearchBarResultState.Initial()
@@ -354,7 +352,7 @@ class DefaultInvitePeoplePresenter(
                     )
                 }.toImmutableList())
             }
-        }.launchIn(this)
+        }
     }
 
     private suspend fun fetchMembers(

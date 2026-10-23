@@ -16,6 +16,11 @@ data class UserSearchResult(
 )
 
 data class UserSearchResultState(
+    /**
+     * The query these results belong to. Consumers must ignore states whose query is not the one currently displayed,
+     * so that a slow response for an older query can never overwrite the results of a newer one.
+     */
+    val query: String,
     val results: List<UserSearchResult>,
     val isSearching: Boolean,
 )
