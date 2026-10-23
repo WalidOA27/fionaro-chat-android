@@ -517,5 +517,3 @@ inactivos en fdroid hasta que se necesiten en un build enterprise futuro.
 ---
 
 *If something is unclear, check the Android repo's README.md and commit history (especially v0.2.x for debugging iterations of the group call fix, and v1.0.0 for the final solution).*
-
-*If something is unclear, check the Android repo's README.md and commit history (especially v0.2.x for debugging iterations of the group call fix, and v1.0.0 for the final solution).*
