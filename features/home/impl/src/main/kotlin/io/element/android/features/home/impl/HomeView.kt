@@ -87,6 +87,7 @@ fun HomeView(
     acceptDeclineInviteView: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     leaveRoomView: @Composable () -> Unit,
+    waifuTabContent: @Composable (Modifier) -> Unit = {},
 ) {
     val state: RoomListState = homeState.roomListState
     val coroutineScope = rememberCoroutineScope()
@@ -121,6 +122,7 @@ fun HomeView(
             onStartChatClick = { if (firstThrottler.canHandle()) onStartChatClick() },
             onCreateSpaceClick = { if (firstThrottler.canHandle()) onCreateSpaceClick() },
             onMenuActionClick = onMenuActionClick,
+            waifuTabContent = waifuTabContent,
         )
         // This overlaid view will only be visible when state.displaySearchResults is true
         RoomListSearchView(
@@ -147,6 +149,7 @@ private fun HomeScaffold(
     onStartChatClick: () -> Unit,
     onCreateSpaceClick: () -> Unit,
     onMenuActionClick: (RoomListMenuAction) -> Unit,
+    waifuTabContent: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     fun onRoomClick(room: RoomListRoomSummary) {
@@ -202,20 +205,24 @@ private fun HomeScaffold(
             val coroutineScope = rememberCoroutineScope()
             HomeBottomBar(
                 currentHomeNavigationBarItem = state.currentHomeNavigationBarItem,
+                items = HomeNavigationBarItem.entries.filter { it != HomeNavigationBarItem.Waifu || state.showWaifuTab },
                 onItemClick = { item ->
                     // scroll to top if selecting the same item
                     if (item == state.currentHomeNavigationBarItem) {
                         val lazyListStateTarget = when (item) {
                             HomeNavigationBarItem.Chats -> roomsLazyListState
                             HomeNavigationBarItem.Spaces -> spacesLazyListState
+                            HomeNavigationBarItem.Waifu -> null
                         }
-                        coroutineScope.launch {
-                            if (lazyListStateTarget.firstVisibleItemIndex > 10) {
-                                lazyListStateTarget.scrollToItem(10)
+                        if (lazyListStateTarget != null) {
+                            coroutineScope.launch {
+                                if (lazyListStateTarget.firstVisibleItemIndex > 10) {
+                                    lazyListStateTarget.scrollToItem(10)
+                                }
+                                // Also reset the scrollBehavior height offset as it's not triggered by programmatic scrolls
+                                scrollBehavior.state.heightOffset = 0f
+                                lazyListStateTarget.animateScrollToItem(0)
                             }
-                            // Also reset the scrollBehavior height offset as it's not triggered by programmatic scrolls
-                            scrollBehavior.state.heightOffset = 0f
-                            lazyListStateTarget.animateScrollToItem(0)
                         }
                     } else {
                         state.eventSink(HomeEvent.SelectHomeNavigationBarItem(item))
@@ -228,6 +235,9 @@ private fun HomeScaffold(
                         }
                         HomeNavigationBarItem.Spaces -> {
                             HomeFloatingActionButton(onCreateSpaceClick, CommonStrings.action_create_space)
+                        }
+                        HomeNavigationBarItem.Waifu -> {
+                            // No FAB on the waifu tab
                         }
                     }
                 },
@@ -285,6 +295,14 @@ private fun HomeScaffold(
                         onExploreClick = {},
                     )
                 }
+                HomeNavigationBarItem.Waifu -> {
+                    waifuTabContent(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .consumeWindowInsets(padding)
+                    )
+                }
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -309,6 +327,7 @@ private fun HomeFloatingActionButton(
 @Composable
 private fun HomeBottomBar(
     currentHomeNavigationBarItem: HomeNavigationBarItem,
+    items: List<HomeNavigationBarItem>,
     onItemClick: (HomeNavigationBarItem) -> Unit,
     modifier: Modifier = Modifier,
     floatingActionButton: (@Composable () -> Unit)?,
@@ -318,7 +337,7 @@ private fun HomeBottomBar(
         modifier = modifier
             .zIndex(1f),
     ) {
-        HomeNavigationBarItem.entries.forEachIndexed { index, item ->
+        items.forEachIndexed { index, item ->
             if (index > 0) {
                 HorizontalFloatingToolbarSeparator()
             }

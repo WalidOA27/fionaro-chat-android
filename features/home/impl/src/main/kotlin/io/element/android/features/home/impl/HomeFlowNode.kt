@@ -44,6 +44,8 @@ import io.element.android.features.logout.api.direct.DirectLogoutView
 import io.element.android.features.reportroom.api.ReportRoomEntryPoint
 import io.element.android.features.rolesandpermissions.api.ChangeRoomMemberRolesEntryPoint
 import io.element.android.features.rolesandpermissions.api.ChangeRoomMemberRolesListType
+import io.element.android.features.waifu.impl.WaifuTabPresenter
+import io.element.android.features.waifu.impl.WaifuTabView
 import io.element.android.libraries.architecture.AsyncData
 import io.element.android.libraries.architecture.BackstackView
 import io.element.android.libraries.architecture.BaseFlowNode
@@ -79,6 +81,7 @@ class HomeFlowNode(
     @Assisted plugins: List<Plugin>,
     private val matrixClient: MatrixClient,
     private val presenter: HomePresenter,
+    private val waifuTabPresenter: WaifuTabPresenter,
     private val inviteFriendsUseCase: InviteFriendsUseCase,
     private val analyticsService: AnalyticsService,
     private val acceptDeclineInviteView: AcceptDeclineInviteView,
@@ -230,6 +233,9 @@ class HomeFlowNode(
                 onReportRoomClick = ::navigateToReportRoom,
                 onDeclineInviteAndBlockUser = ::navigateToDeclineInviteAndBlockUser,
                 modifier = modifier,
+                waifuTabContent = { modifier ->
+                    WaifuTabView(state = waifuTabPresenter.present(), modifier = modifier)
+                },
                 acceptDeclineInviteView = {
                     acceptDeclineInviteView.Render(
                         state = state.roomListState.acceptDeclineInviteState,

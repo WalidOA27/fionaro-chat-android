@@ -10,6 +10,8 @@ package io.element.android.features.home.impl
 
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import io.element.android.compound.tokens.generated.CompoundIcons
 
 enum class HomeNavigationBarItem(
@@ -21,6 +23,9 @@ enum class HomeNavigationBarItem(
     ),
     Spaces(
         labelRes = R.string.screen_home_tab_spaces
+    ),
+    Waifu(
+        labelRes = R.string.screen_home_tab_waifu
     );
 
     @Composable
@@ -29,6 +34,7 @@ enum class HomeNavigationBarItem(
     ) = when (this) {
         Chats -> if (isSelected) CompoundIcons.ChatSolid() else CompoundIcons.Chat()
         Spaces -> if (isSelected) CompoundIcons.SpaceSolid() else CompoundIcons.Space()
+        Waifu -> NekoIcon()
     }
 
     companion object {
@@ -37,3 +43,6 @@ enum class HomeNavigationBarItem(
         }
     }
 }
+
+@Composable
+internal fun NekoIcon(): ImageVector = ImageVector.vectorResource(R.drawable.ic_neko)

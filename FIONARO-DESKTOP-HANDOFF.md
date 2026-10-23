@@ -478,7 +478,15 @@ post /sfu/get ──────► jwt service ──► resolve openid via Fed
                   Red icon = ErrorSolidIcon showing unencryptedWarning (encrypted=false intentional).
 ```
 
-### TODO: Limpiar PostHog y Sentry del build fdroid
+### TODO: Romper bucle de error Umami (NO URGENTE)
+
+**Contexto:** Cuando `UmamiTracker.sendUmami()` falla (ej: microcorte WiFi), el `DefaultAnalyticsService.trackError(throwable)` envía un evento `Error` a Umami, que a su vez llama a `sendUmami()` → otro fallo → otro `trackError()` → cascada de errores. Resultado: 7+ eventos `Error` en dashboard durante microcortes de red.
+
+**Fix:** En el catch de `sendUmami()`, no propagar el error via `trackError()`. Solo loguear localmente. Si es un error no-Umami (ej: crash de la app), sí enviarlo.
+
+**Ubicación:** `UmamiTracker.kt:72` — catch block actualmente hace `Log.e("Umami", "Failed to send", e)` que es correcto (solo log). La cascada viene de otro lado — `DefaultAnalyticsService.trackError()` es llamado externamente cuando algo más falla.
+
+**Prioridad:** Baja. Solo ocurre durante microcortes de red. No afecta funcionalidad de la app.
 
 **Contexto:** En el build fdroid, `consent` siempre es `true` (no hay diálogo de opt-in).
 `UmamiAnalyticsProvider` funciona (nuestro servidor, funciona sin consent),

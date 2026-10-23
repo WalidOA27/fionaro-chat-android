@@ -61,6 +61,8 @@ dependencies {
     implementation(projects.features.rolesandpermissions.api)
     implementation(projects.libraries.previewutils)
     api(projects.features.home.api)
+    implementation(projects.features.waifu.api)
+    implementation(projects.features.waifu.impl)
 
     testCommonDependencies(libs, true)
     testImplementation(projects.features.announcement.test)

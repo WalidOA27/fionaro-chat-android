@@ -14,6 +14,7 @@ import io.element.android.features.home.impl.spaces.HomeSpacesState
 import io.element.android.features.home.impl.spaces.aHomeSpacesState
 import io.element.android.features.logout.api.direct.aDirectLogoutState
 import io.element.android.features.rageshake.api.RageshakeFeatureAvailability
+import io.element.android.features.waifu.api.WaifuAllowlist
 import io.element.android.libraries.architecture.Presenter
 import io.element.android.libraries.designsystem.utils.snackbar.SnackbarDispatcher
 import io.element.android.libraries.indicator.api.IndicatorService
@@ -145,6 +146,30 @@ class HomePresenterTest {
             assertThat(finalState.currentHomeNavigationBarItem).isEqualTo(HomeNavigationBarItem.Spaces)
         }
     }
+
+    @Test
+    fun `present - waifu tab shown when session id is in allowlist`() = runTest {
+        val matrixClient = FakeMatrixClient()
+        val presenter = createHomePresenter(
+            client = matrixClient,
+            waifuAllowlist = FakeWaifuAllowlist(initialUsers = setOf(matrixClient.sessionId.value)),
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            assertThat(initialState.showWaifuTab).isTrue()
+        }
+    }
+
+    @Test
+    fun `present - waifu tab hidden when session id not in allowlist`() = runTest {
+        val presenter = createHomePresenter(
+            waifuAllowlist = FakeWaifuAllowlist(initialUsers = setOf("@other:domain")),
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            assertThat(initialState.showWaifuTab).isFalse()
+        }
+    }
 }
 
 internal fun createHomePresenter(
@@ -155,6 +180,7 @@ internal fun createHomePresenter(
     indicatorService: IndicatorService = FakeIndicatorService(),
     homeSpacesPresenter: Presenter<HomeSpacesState> = Presenter { aHomeSpacesState() },
     sessionStore: SessionStore = InMemorySessionStore(),
+    waifuAllowlist: WaifuAllowlist = FakeWaifuAllowlist(),
 ) = HomePresenter(
     client = client,
     syncService = syncService,
@@ -165,4 +191,5 @@ internal fun createHomePresenter(
     logoutPresenter = { aDirectLogoutState() },
     rageshakeFeatureAvailability = rageshakeFeatureAvailability,
     sessionStore = sessionStore,
+    waifuAllowlist = waifuAllowlist,
 )

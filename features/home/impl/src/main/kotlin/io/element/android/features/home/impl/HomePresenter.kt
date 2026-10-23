@@ -23,6 +23,7 @@ import io.element.android.features.home.impl.roomlist.RoomListState
 import io.element.android.features.home.impl.spaces.HomeSpacesState
 import io.element.android.features.logout.api.direct.DirectLogoutState
 import io.element.android.features.rageshake.api.RageshakeFeatureAvailability
+import io.element.android.features.waifu.api.WaifuAllowlist
 import io.element.android.libraries.architecture.Presenter
 import io.element.android.libraries.designsystem.utils.snackbar.SnackbarDispatcher
 import io.element.android.libraries.designsystem.utils.snackbar.collectSnackbarMessageAsState
@@ -33,6 +34,9 @@ import io.element.android.libraries.sessionstorage.api.SessionStore
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+
+// Una unica actualizacion remota de la allowlist por proceso de la app.
+private var waifuRefreshedOnce = false
 
 @Inject
 class HomePresenter(
@@ -45,6 +49,7 @@ class HomePresenter(
     private val logoutPresenter: Presenter<DirectLogoutState>,
     private val rageshakeFeatureAvailability: RageshakeFeatureAvailability,
     private val sessionStore: SessionStore,
+    private val waifuAllowlist: WaifuAllowlist,
 ) : Presenter<HomeState> {
     private val currentUserWithNeighborsBuilder = CurrentUserWithNeighborsBuilder()
 
@@ -72,7 +77,15 @@ class HomePresenter(
         LaunchedEffect(Unit) {
             // Force a refresh of the profile
             client.getUserProfile()
+            // Waifu allowlist: cache local en DataStore; el fetch remoto solo 1 vez por proceso
+            // (0 red en el arranque para usuarios sin la feature).
+            if (!waifuRefreshedOnce) {
+                waifuAllowlist.refresh()
+                waifuRefreshedOnce = true
+            }
         }
+        val waifuUsers by waifuAllowlist.users.collectAsState()
+        val showWaifuTab = client.sessionId.value in waifuUsers
         // Avatar indicator
         val showAvatarIndicator by indicatorService.showRoomListTopBarIndicator()
         val directLogoutState = logoutPresenter.present()
@@ -96,6 +109,7 @@ class HomePresenter(
             currentHomeNavigationBarItem = currentHomeNavigationBarItem,
             roomListState = roomListState,
             homeSpacesState = homeSpacesState,
+            showWaifuTab = showWaifuTab,
             snackbarMessage = snackbarMessage,
             canReportBug = canReportBug,
             directLogoutState = directLogoutState,
