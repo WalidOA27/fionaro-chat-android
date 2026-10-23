@@ -20,6 +20,7 @@ class ElementRuleSetProvider : RuleSetProvider {
         rules = listOf(
             RunCatchingRule(config),
             ByPreferencesDataStoreRule(config),
+            NoAndroidUtilLogRule(config),
         )
     )
 }

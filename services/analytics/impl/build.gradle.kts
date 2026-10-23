@@ -33,7 +33,6 @@ dependencies {
 
     api(projects.services.analyticsproviders.api)
     api(projects.services.analytics.api)
-    implementation(projects.services.analyticsproviders.umami)
     implementation(libs.androidx.datastore.preferences)
 
     testCommonDependencies(libs)

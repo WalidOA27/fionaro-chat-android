@@ -273,3 +273,7 @@ Compose:
     active: true
   UnstableCollections:
     active: true
+
+ElementXRules:
+  AndroidUtilLogNotAllowed:
+    active: true

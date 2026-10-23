@@ -59,6 +59,61 @@ class DefaultAnalyticsServiceTest {
     }
 
     @Test
+    fun `when the user has turned analytics off, Umami receives no events`() = runTest {
+        val initLambda = lambdaRecorder<Unit> { }
+        val stopLambda = lambdaRecorder<Unit> { }
+        val captureLambda = lambdaRecorder<VectorAnalyticsEvent, Unit> { _ -> }
+        val screenLambda = lambdaRecorder<VectorAnalyticsScreen, Unit> { _ -> }
+        val trackErrorLambda = lambdaRecorder<Throwable, Unit> { _ -> }
+        val sut = createDefaultAnalyticsService(
+            coroutineScope = backgroundScope,
+            analyticsStore = FakeAnalyticsStore(defaultUserConsent = false),
+            analyticsProviders = setOf(
+                FakeAnalyticsProvider(
+                    name = "Umami",
+                    initLambda = initLambda,
+                    stopLambda = stopLambda,
+                    captureLambda = captureLambda,
+                    screenLambda = screenLambda,
+                    trackErrorLambda = trackErrorLambda,
+                )
+            )
+        )
+        sut.capture(anEvent)
+        sut.screen(aScreen)
+        sut.trackError(anError)
+        initLambda.assertions().isNeverCalled()
+        captureLambda.assertions().isNeverCalled()
+        screenLambda.assertions().isNeverCalled()
+        trackErrorLambda.assertions().isNeverCalled()
+        stopLambda.assertions().isCalledOnce()
+    }
+
+    @Test
+    fun `when consent is enabled at runtime, Umami starts receiving events`() = runTest {
+        val initLambda = lambdaRecorder<Unit> { }
+        val captureLambda = lambdaRecorder<VectorAnalyticsEvent, Unit> { _ -> }
+        val sut = createDefaultAnalyticsService(
+            coroutineScope = backgroundScope,
+            analyticsStore = FakeAnalyticsStore(defaultUserConsent = false),
+            analyticsProviders = setOf(
+                FakeAnalyticsProvider(
+                    name = "Umami",
+                    initLambda = initLambda,
+                    stopLambda = { },
+                    captureLambda = captureLambda,
+                )
+            )
+        )
+        initLambda.assertions().isNeverCalled()
+        sut.setUserConsent(true)
+        delay(1)
+        initLambda.assertions().isCalledOnce()
+        sut.capture(anEvent)
+        captureLambda.assertions().isCalledOnce().with(value(anEvent))
+    }
+
+    @Test
     fun `when consent is provided, capture is sent to the AnalyticsProvider`() = runTest {
         val initLambda = lambdaRecorder<Unit> { }
         val captureLambda = lambdaRecorder<VectorAnalyticsEvent, Unit> { _ -> }
@@ -166,7 +221,8 @@ class DefaultAnalyticsServiceTest {
             analyticsStore = store,
         )
         assertThat(store.didAskUserConsentFlow.first()).isFalse()
-        assertThat(sut.didAskUserConsentFlow.first()).isFalse()
+        // The analytics opt-in dialog is deliberately skipped, so the service always reports that consent was asked.
+        assertThat(sut.didAskUserConsentFlow.first()).isTrue()
         sut.setDidAskUserConsent()
         assertThat(store.didAskUserConsentFlow.first()).isTrue()
         assertThat(sut.didAskUserConsentFlow.first()).isTrue()

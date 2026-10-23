@@ -8,7 +8,6 @@
 
 package io.element.android.libraries.matrix.impl.tracing
 
-import android.util.Log
 import org.matrix.rustcomponents.sdk.LogLevel
 import org.matrix.rustcomponents.sdk.logEvent
 import timber.log.Timber
@@ -22,6 +21,13 @@ private val fqcnIgnore = listOf(
     Timber.Tree::class.java.name,
     RustTracingTree::class.java.name,
 )
+
+// Values mirror the platform log priorities used by Timber.
+private const val PRIORITY_VERBOSE = 2
+private const val PRIORITY_DEBUG = 3
+private const val PRIORITY_INFO = 4
+private const val PRIORITY_WARN = 5
+private const val PRIORITY_ERROR = 6
 
 /**
  * A Timber tree that passes logs to the Rust SDK.
@@ -61,11 +67,11 @@ internal class RustTracingTree(
  */
 private fun Int.toLogLevel(): LogLevel {
     return when (this) {
-        Log.VERBOSE -> LogLevel.TRACE
-        Log.DEBUG -> LogLevel.DEBUG
-        Log.INFO -> LogLevel.INFO
-        Log.WARN -> LogLevel.WARN
-        Log.ERROR -> LogLevel.ERROR
+        PRIORITY_VERBOSE -> LogLevel.TRACE
+        PRIORITY_DEBUG -> LogLevel.DEBUG
+        PRIORITY_INFO -> LogLevel.INFO
+        PRIORITY_WARN -> LogLevel.WARN
+        PRIORITY_ERROR -> LogLevel.ERROR
         else -> LogLevel.DEBUG
     }
 }
