@@ -115,7 +115,7 @@ internal class DefaultInvitePeoplePresenterTest {
             val initialState = awaitItemAsDefault()
             initialState.searchQuery.setTextAndPlaceCursorAtEnd("some query")
             assertThat(repository.providedQuery).isEqualTo("some query")
-            repository.emitState(UserSearchResultState(results = emptyList(), isSearching = true))
+            repository.emitState(UserSearchResultState(query = "some query", results = emptyList(), isSearching = true))
             skipItems(3)
             awaitItemAsDefault().also { state ->
                 assertThat(state.searchResults).isInstanceOf(SearchBarResultState.Initial::class.java)
@@ -126,6 +126,61 @@ internal class DefaultInvitePeoplePresenterTest {
                 assertThat(state.searchResults).isInstanceOf(SearchBarResultState.NoResultsFound::class.java)
                 assertThat(state.showSearchLoader).isFalse()
             }
+        }
+    }
+
+    @Test
+    fun `present - ignores results from a previous query`() = runTest {
+        val repository = FakeUserRepository()
+        val presenter = createDefaultInvitePeoplePresenter(
+            userRepository = repository,
+            coroutineDispatchers = testCoroutineDispatchers(useUnconfinedTestDispatcher = true)
+        )
+        presenter.test {
+            val initialState = awaitItemAsDefault()
+            initialState.searchQuery.setTextAndPlaceCursorAtEnd("alice")
+            skipItems(2)
+            initialState.searchQuery.setTextAndPlaceCursorAtEnd("bob")
+            skipItems(2)
+
+            // A late response for the previous query must not overwrite the state for the current query.
+            repository.emitState(
+                results = listOf(UserSearchResult(aMatrixUser(id = "@alice:example.com", displayName = "Alice"))),
+                isSearching = false,
+                query = "alice",
+            )
+            val bob = aMatrixUser(id = "@bob:example.com", displayName = "Bob")
+            repository.emitState(
+                results = listOf(UserSearchResult(bob)),
+                isSearching = false,
+                query = "bob",
+            )
+
+            var state = awaitItemAsDefault()
+            while (state.searchResults !is SearchBarResultState.Results) {
+                state = awaitItemAsDefault()
+            }
+            assertThat(state.searchResults.users().map { it.matrixUser }).containsExactly(bob)
+        }
+    }
+
+    @Test
+    fun `present - presents an error state when the search fails`() = runTest {
+        val repository = FakeUserRepository()
+        val presenter = createDefaultInvitePeoplePresenter(
+            userRepository = repository,
+            coroutineDispatchers = testCoroutineDispatchers(useUnconfinedTestDispatcher = true)
+        )
+        presenter.test {
+            val initialState = awaitItemAsDefault()
+            repository.givenSearchFailure(RuntimeException("Search failed"))
+            initialState.searchQuery.setTextAndPlaceCursorAtEnd("some query")
+
+            var state = awaitItemAsDefault()
+            while (state.searchResults !is SearchBarResultState.NoResultsFound) {
+                state = awaitItemAsDefault()
+            }
+            assertThat(state.showSearchLoader).isFalse()
         }
     }
 
@@ -260,11 +315,10 @@ internal class DefaultInvitePeoplePresenterTest {
 
             val unresolvedUser =
                 UserSearchResult(aMatrixUser(id = A_USER_ID.value), isUnresolved = true)
-            repository.emitState(listOf(unresolvedUser) + aMatrixUserList().map {
-                UserSearchResult(
-                    it
-                )
-            })
+            repository.emitState(
+                results = listOf(unresolvedUser) + aMatrixUserList().map { UserSearchResult(it) },
+                isSearching = false,
+            )
             skipItems(1)
 
             val resultState = awaitItemAsDefault()
@@ -728,6 +782,7 @@ internal class DefaultInvitePeoplePresenterTest {
             assertThat(repository.providedQuery).isEqualTo("some query")
             repository.emitState(
                 UserSearchResultState(
+                    query = "some query",
                     results = listOf(UserSearchResult(alice), UserSearchResult(bob)),
                     isSearching = true
                 )
@@ -887,17 +942,6 @@ internal class DefaultInvitePeoplePresenterTest {
             results = users.map { UserSearchResult(it) },
             isSearching = isSearching,
         )
-    }
-
-    private suspend fun FakeUserRepository.emitState(
-        results: List<UserSearchResult>,
-        isSearching: Boolean = false
-    ) {
-        val state = UserSearchResultState(
-            results = results,
-            isSearching = isSearching
-        )
-        emitState(state)
     }
 
     private fun SearchBarResultState<ImmutableList<InvitableUser>>.users() =

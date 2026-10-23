@@ -18,6 +18,7 @@ import io.element.android.libraries.usersearch.api.UserListDataSource
 import io.element.android.libraries.usersearch.api.UserRepository
 import io.element.android.libraries.usersearch.api.UserSearchResult
 import io.element.android.libraries.usersearch.api.UserSearchResultState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -28,43 +29,64 @@ class MatrixUserRepository(
     private val dataSource: UserListDataSource
 ) : UserRepository {
     override fun search(query: String): Flow<UserSearchResultState> = flow {
-        val shouldQueryProfile = MatrixPatterns.isUserId(query) && !client.isMe(UserId(query))
-        val shouldFetchSearchResults = query.length >= MINIMUM_SEARCH_LENGTH
+        // Ignore surrounding whitespace so a pasted MXID (or name) still matches.
+        val trimmedQuery = query.trim()
+        val shouldQueryProfile = MatrixPatterns.isUserId(trimmedQuery) && !client.isMe(UserId(trimmedQuery))
+        val shouldFetchSearchResults = trimmedQuery.length >= MINIMUM_SEARCH_LENGTH
         // If the search term is a MXID that's not ours, we'll show a 'fake' result for that user, then update it when we get search results.
         val fakeSearchResult = if (shouldQueryProfile) {
-            UserSearchResult(MatrixUser(UserId(query)))
+            UserSearchResult(MatrixUser(UserId(trimmedQuery)))
         } else {
             null
         }
         if (shouldQueryProfile || shouldFetchSearchResults) {
-            emit(UserSearchResultState(isSearching = shouldFetchSearchResults, results = listOfNotNull(fakeSearchResult)))
+            emit(UserSearchResultState(query = query, isSearching = shouldFetchSearchResults, results = listOfNotNull(fakeSearchResult)))
         }
         if (shouldFetchSearchResults) {
-            val results = fetchSearchResults(query, shouldQueryProfile)
+            val results = fetchSearchResults(query, trimmedQuery, shouldQueryProfile)
             emit(results)
         }
     }
 
-    private suspend fun fetchSearchResults(query: String, shouldQueryProfile: Boolean): UserSearchResultState {
+    private suspend fun fetchSearchResults(query: String, trimmedQuery: String, shouldQueryProfile: Boolean): UserSearchResultState {
         // Debounce
         delay(DEBOUNCE_TIME_MILLIS)
-        val results = dataSource
-            .search(query, MAXIMUM_SEARCH_RESULTS)
+        val results = searchDirectory(trimmedQuery)
             .filter { !client.isMe(it.userId) }
+            .distinctBy { it.userId }
             .map { UserSearchResult(it) }
             .toMutableList()
 
         // If the query is another user's MXID and the result doesn't contain that user ID, query the profile information explicitly
-        if (shouldQueryProfile && results.none { it.matrixUser.userId.value == query }) {
-            results.add(
-                0,
-                dataSource.getProfile(UserId(query))
-                    ?.let { UserSearchResult(it) }
-                    ?: UserSearchResult(MatrixUser(UserId(query)), isUnresolved = true)
-            )
+        if (shouldQueryProfile && results.none { it.matrixUser.userId.value == trimmedQuery }) {
+            results.add(0, getProfileResult(trimmedQuery))
         }
 
-        return UserSearchResultState(results = results, isSearching = false)
+        return UserSearchResultState(query = query, results = results, isSearching = false)
+    }
+
+    private suspend fun searchDirectory(query: String): List<MatrixUser> {
+        // A failing directory request is equivalent to an empty directory: the MXID profile lookup below still runs.
+        return try {
+            dataSource.search(query, MAXIMUM_SEARCH_RESULTS)
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
+        } catch (@Suppress("TooGenericExceptionCaught") exception: Exception) {
+            emptyList()
+        }
+    }
+
+    private suspend fun getProfileResult(query: String): UserSearchResult {
+        val profile = try {
+            dataSource.getProfile(UserId(query))
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
+        } catch (@Suppress("TooGenericExceptionCaught") exception: Exception) {
+            null
+        }
+        return profile
+            ?.let { UserSearchResult(it) }
+            ?: UserSearchResult(MatrixUser(UserId(query)), isUnresolved = true)
     }
 
     companion object {
