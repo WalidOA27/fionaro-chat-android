@@ -27,8 +27,8 @@ import io.element.android.features.call.api.CallData
 import io.element.android.features.call.impl.data.WidgetMessage
 import io.element.android.features.call.impl.utils.ActiveCallManager
 import io.element.android.features.call.impl.utils.CallWidgetProvider
-import io.element.android.features.call.impl.utils.WidgetMessageInterceptor
 import io.element.android.features.call.impl.utils.WebViewWidgetMessageInterceptor
+import io.element.android.features.call.impl.utils.WidgetMessageInterceptor
 import io.element.android.features.call.impl.utils.WidgetMessageSerializer
 import io.element.android.libraries.architecture.AsyncData
 import io.element.android.libraries.architecture.Presenter
@@ -124,8 +124,6 @@ class CallScreenPresenter(
             LaunchedEffect(Unit) {
                 interceptor.interceptedMessages
                     .onEach { message ->
-                        // Log all messages from the WebView for diagnostic purposes
-                        android.util.Log.e("FionaroCall", "interceptedMessages: $message")
                         // We are receiving messages from the WebView, consider that the application is loaded
                         ignoreWebViewError = true
 
@@ -144,8 +142,11 @@ class CallScreenPresenter(
                         // Extract action from raw JSON (more robust than string matching, handles unknown actions)
                         val rawAction = try {
                             org.json.JSONObject(message).optString("action")
-                        } catch (_: Exception) { null }
+                        } catch (_: Exception) {
+                            null
+                        }
                         val isEcAction = rawAction != null && rawAction in ecActionsNotInSdk
+                        Timber.v("Widget message received from the WebView: fromWidget=%s action=%s", isFromWidget, rawAction)
 
                         if (isEcAction) {
                             // Respond with success to the WebView without forwarding to Rust SDK
@@ -153,9 +154,9 @@ class CallScreenPresenter(
                                 val json = org.json.JSONObject(message)
                                 json.put("response", org.json.JSONObject("{}"))
                                 interceptor.sendMessage(json.toString())
-                                android.util.Log.e("FionaroCall", "Intercepted EC action (bypassed Rust SDK): $message")
+                                Timber.d("Intercepted EC action (bypassed Rust SDK): %s", rawAction)
                             } catch (e: Exception) {
-                                android.util.Log.e("FionaroCall", "Failed to intercept EC action: ${e.message}")
+                                Timber.e("Failed to intercept EC action (%s)", e.javaClass.simpleName)
                             }
                         } else {
                             // Forward to Rust SDK for standard widget actions (or toWidget messages)
@@ -211,8 +212,6 @@ class CallScreenPresenter(
                 is CallScreenEvent.SetupMessageChannels -> {
                     messageInterceptor.value = event.widgetMessageInterceptor
                     (event.widgetMessageInterceptor as? WebViewWidgetMessageInterceptor)?.let {
-                        it.matrixClientProvider = matrixClientsProvider
-                        it.callSessionId = callData.sessionId.value
                         it.preCreatedRoomId = callPreCreatedRoomId
                     }
                 }
@@ -254,7 +253,9 @@ class CallScreenPresenter(
             callWidgetDriver.value = result.driver
             callPreCreatedRoomId = result.preCreatedRoomId
             (messageInterceptor.value as? WebViewWidgetMessageInterceptor)?.preCreatedRoomId = callPreCreatedRoomId
-            Timber.d("Call widget driver initialized for sessionId: ${callData.sessionId}, roomId: ${callData.roomId} preCreatedRoomId=${result.preCreatedRoomId}")
+            Timber.d(
+                "Call widget driver initialized for sessionId: ${callData.sessionId}, roomId: ${callData.roomId} preCreatedRoomId=${result.preCreatedRoomId}"
+            )
             result.url
         }
     }

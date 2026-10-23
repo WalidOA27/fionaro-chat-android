@@ -37,6 +37,14 @@ plugins {
     // alias(libs.plugins.gms.google.services)
 }
 
+// Release signing material is supplied through environment variables only. The providers are
+// resolved lazily, so configuring or running non-release tasks never requires a keystore.
+val fionaroSigningVariables = listOf(
+    "FIONARO_KEYSTORE_PATH",
+    "FIONARO_KEYSTORE_PASSWORD",
+    "FIONARO_KEY_PASSWORD",
+)
+
 android {
     namespace = "io.element.android.x"
 
@@ -45,6 +53,12 @@ android {
         targetSdk = Versions.TARGET_SDK
         versionCode = Versions.VERSION_CODE
         versionName = Versions.VERSION_NAME
+
+        // Rust SDK crash reporting DSN. Empty for self-hosted builds unless explicitly configured.
+        buildConfigFieldStr(
+            name = "SENTRY_SDK_DSN",
+            value = BuildTimeConfig.SERVICES_SENTRY_DSN_RUST ?: System.getenv("ELEMENT_SDK_SENTRY_DSN") ?: "",
+        )
 
         // Keep abiFilter for the universalApk
         ndk {
@@ -98,10 +112,14 @@ android {
         register("release") {
             enableV1Signing = true
             enableV2Signing = true
-            storeFile = file(System.getenv("FIONARO_KEYSTORE_PATH") ?: "./signature/debug.keystore")
-            storePassword = System.getenv("FIONARO_KEYSTORE_PASSWORD") ?: ""
             keyAlias = "fionaro-chat"
-            keyPassword = System.getenv("FIONARO_KEY_PASSWORD") ?: ""
+            storeFile = providers.environmentVariable("FIONARO_KEYSTORE_PATH").orNull
+                ?.takeIf { it.isNotBlank() }
+                ?.let { file(it) }
+            storePassword = providers.environmentVariable("FIONARO_KEYSTORE_PASSWORD").orNull
+                ?.takeIf { it.isNotBlank() }
+            keyPassword = providers.environmentVariable("FIONARO_KEY_PASSWORD").orNull
+                ?.takeIf { it.isNotBlank() }
         }
     }
 
@@ -202,12 +220,12 @@ android {
     productFlavors {
         create("gplay") {
             dimension = "store"
-            isDefault = true
             buildConfigFieldStr("SHORT_FLAVOR_DESCRIPTION", "G")
             buildConfigFieldStr("FLAVOR_DESCRIPTION", "GooglePlay")
         }
         create("fdroid") {
             dimension = "store"
+            isDefault = true
             buildConfigFieldStr("SHORT_FLAVOR_DESCRIPTION", "F")
             buildConfigFieldStr("FLAVOR_DESCRIPTION", "FDroid")
         }
@@ -221,6 +239,38 @@ android {
         jniLibs {
             useLegacyPackaging = project.findProperty("useLegacyPackaging")?.toString()?.toBoolean()
         }
+    }
+}
+
+// Fails release builds early with an actionable message when the signing environment is
+// incomplete, instead of quietly falling back to another keystore or failing deep inside AGP.
+val checkFionaroReleaseSigning = tasks.register("checkFionaroReleaseSigning") {
+    group = "verification"
+    description = "Checks that the environment variables required to sign a release build are set."
+    val requiredVariables = fionaroSigningVariables
+    doLast {
+        val missing = requiredVariables.filter { System.getenv(it).isNullOrBlank() }
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "Fionaro release signing is not configured. Missing required environment variable(s): " +
+                    missing.joinToString(", ") +
+                    ". Export FIONARO_KEYSTORE_PATH, FIONARO_KEYSTORE_PASSWORD and FIONARO_KEY_PASSWORD " +
+                    "before building a release variant. Debug builds such as assembleFdroidDebug do not require them.",
+            )
+        }
+    }
+}
+
+// Task-name prefixes of the tasks that produce or install a release build.
+val releaseTaskPrefixes = listOf("assemble", "bundle", "install", "package", "sign", "validateSigning")
+
+tasks.configureEach {
+    val requiresReleaseSigning = name == "assemble" ||
+        name == "build" ||
+        name == "bundle" ||
+        (name.endsWith("Release") && releaseTaskPrefixes.any { name.startsWith(it) })
+    if (requiresReleaseSigning) {
+        dependsOn(checkFionaroReleaseSigning)
     }
 }
 
@@ -271,7 +321,6 @@ dependencies {
     implementation(projects.appconfig)
     implementation(projects.libraries.uiStrings)
     implementation(projects.services.analytics.compose)
-    implementation(projects.services.analyticsproviders.umami)
 
     if (ModulesConfig.pushProvidersConfig.includeFirebase) {
         "gplayImplementation"(projects.libraries.pushproviders.firebase)

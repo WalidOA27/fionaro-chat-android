@@ -46,7 +46,7 @@ class DefaultAnalyticsStore(
     private val dataStore = preferenceDataStoreFactory.create("vector_analytics")
 
     override val userConsentFlow: Flow<Boolean> = dataStore.data
-        .map { preferences -> preferences[userConsent].orFalse() }
+        .map { preferences -> preferences[userConsent] ?: true }
         .distinctUntilChanged()
 
     override val didAskUserConsentFlow: Flow<Boolean> = dataStore.data

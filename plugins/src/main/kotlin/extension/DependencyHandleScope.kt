@@ -128,17 +128,21 @@ fun DependencyHandlerScope.allLibrariesImpl() {
 
 fun DependencyHandlerScope.allServicesImpl() {
     implementation(project(":services:analytics:compose"))
-    when (ModulesConfig.analyticsConfig) {
+    when (val analyticsConfig = ModulesConfig.analyticsConfig) {
         AnalyticsConfig.Disabled -> {
             implementation(project(":services:analytics:noop"))
+        }
+        AnalyticsConfig.UmamiOnly -> {
+            implementation(project(":services:analytics:impl"))
+            implementation(project(":services:analyticsproviders:umami"))
         }
         is AnalyticsConfig.Enabled -> {
             implementation(project(":services:analytics:impl"))
             implementation(project(":services:analyticsproviders:umami"))
-            if (ModulesConfig.analyticsConfig.withPosthog) {
+            if (analyticsConfig.withPosthog) {
                 implementation(project(":services:analyticsproviders:posthog"))
             }
-            if (ModulesConfig.analyticsConfig.withSentry) {
+            if (analyticsConfig.withSentry) {
                 implementation(project(":services:analyticsproviders:sentry"))
             }
         }

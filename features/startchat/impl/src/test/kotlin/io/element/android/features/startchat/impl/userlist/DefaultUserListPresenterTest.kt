@@ -125,6 +125,7 @@ class DefaultUserListPresenterTest {
 
             // When the user repository emits a result, it's copied to the state
             val result = UserSearchResultState(
+                query = "alice",
                 results = listOf(UserSearchResult(aMatrixUser())),
                 isSearching = false,
             )
@@ -139,6 +140,7 @@ class DefaultUserListPresenterTest {
             }
             // When the user repository emits another result, it replaces the previous value
             val newResult = UserSearchResultState(
+                query = "alice",
                 results = aMatrixUserList().map { UserSearchResult(it) },
                 isSearching = false,
             )
@@ -175,8 +177,96 @@ class DefaultUserListPresenterTest {
             skipItems(2)
 
             // When the results list is empty, the state is set to NoResults
-            userRepository.emitState(UserSearchResultState(results = emptyList(), isSearching = false))
+            userRepository.emitState(results = emptyList(), isSearching = false)
             assertThat(awaitItem().searchResults).isInstanceOf(SearchBarResultState.NoResultsFound::class.java)
+        }
+    }
+
+    @Test
+    fun `present - presents the loading state while searching`() = runTest {
+        val presenter =
+            DefaultUserListPresenter(
+                UserListPresenterArgs(selectionMode = SelectionMode.Single),
+                userRepository,
+                UserListDataStore(),
+                FakeMatrixClient(),
+            )
+        presenter.test {
+            skipItems(1)
+            val initialState = awaitItem()
+
+            initialState.searchQuery.setTextAndPlaceCursorAtEnd("alice")
+            skipItems(2)
+
+            userRepository.emitState(results = emptyList(), isSearching = true)
+            awaitItem().also { state ->
+                assertThat(state.searchResults).isInstanceOf(SearchBarResultState.Initial::class.java)
+                assertThat(state.showSearchLoader).isTrue()
+            }
+        }
+    }
+
+    @Test
+    fun `present - ignores results from a previous query`() = runTest {
+        val presenter =
+            DefaultUserListPresenter(
+                UserListPresenterArgs(selectionMode = SelectionMode.Single),
+                userRepository,
+                UserListDataStore(),
+                FakeMatrixClient(),
+            )
+        presenter.test {
+            skipItems(1)
+            val initialState = awaitItem()
+
+            initialState.searchQuery.setTextAndPlaceCursorAtEnd("alice")
+            skipItems(2)
+
+            initialState.searchQuery.setTextAndPlaceCursorAtEnd("bob")
+            skipItems(2)
+
+            // A late response for the previous query must not overwrite the state for the current query.
+            userRepository.emitState(
+                results = listOf(UserSearchResult(aMatrixUser(id = "@alice:example.com", displayName = "Alice"))),
+                isSearching = false,
+                query = "alice",
+            )
+            expectNoEvents()
+
+            // The response for the current query is still presented.
+            val bob = aMatrixUser(id = "@bob:example.com", displayName = "Bob")
+            userRepository.emitState(
+                results = listOf(UserSearchResult(bob)),
+                isSearching = false,
+                query = "bob",
+            )
+            awaitItem().also { state ->
+                assertThat(state.searchResults).isEqualTo(SearchBarResultState.Results(persistentListOf(UserSearchResult(bob))))
+            }
+        }
+    }
+
+    @Test
+    fun `present - presents an error state when the search fails`() = runTest {
+        val presenter =
+            DefaultUserListPresenter(
+                UserListPresenterArgs(selectionMode = SelectionMode.Single),
+                userRepository,
+                UserListDataStore(),
+                FakeMatrixClient(),
+            )
+        presenter.test {
+            skipItems(1)
+            val initialState = awaitItem()
+
+            userRepository.givenSearchFailure(RuntimeException("Search failed"))
+            initialState.searchQuery.setTextAndPlaceCursorAtEnd("alice")
+
+            var state = awaitItem()
+            while (state.searchResults !is SearchBarResultState.NoResultsFound) {
+                state = awaitItem()
+            }
+            assertThat(state.showSearchLoader).isFalse()
         }
     }
 

@@ -22,7 +22,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.core.app.PictureInPictureModeChangedInfo
+import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import androidx.core.util.Consumer
 import androidx.core.view.WindowCompat
@@ -105,7 +105,7 @@ class ElementCallActivity :
         super.onCreate(savedInstanceState)
 
         bindings<CallBindings>().inject(this)
-        android.util.Log.e("FionaroCall", "onCreate called, webViewTarget=" + webViewTarget.value)
+        Timber.d("onCreate called")
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 

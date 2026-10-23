@@ -28,10 +28,9 @@ import io.element.android.libraries.matrix.api.room.recent.RecentDirectRoom
 import io.element.android.libraries.matrix.api.room.recent.getRecentDirectRooms
 import io.element.android.libraries.usersearch.api.UserRepository
 import io.element.android.libraries.usersearch.api.UserSearchResult
+import io.element.android.libraries.usersearch.api.collectSearchStates
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 
@@ -75,14 +74,14 @@ class DefaultUserListPresenter(
         LaunchedEffect(searchQuery) {
             searchResults = SearchBarResultState.Initial()
             showSearchLoader = false
-            userRepository.search(searchQuery).onEach { state ->
+            userRepository.collectSearchStates(searchQuery) { state ->
                 showSearchLoader = state.isSearching
                 searchResults = when {
                     state.results.isEmpty() && state.isSearching -> SearchBarResultState.Initial()
                     state.results.isEmpty() && !state.isSearching -> SearchBarResultState.NoResultsFound()
                     else -> SearchBarResultState.Results(state.results.toImmutableList())
                 }
-            }.launchIn(this)
+            }
         }
 
         fun handleEvent(event: UserListEvents) {

@@ -25,12 +25,12 @@ All Matrix and related endpoints point to the Fionaro infrastructure:
 - TURN: `turn.fionaro.pw`
 
 ### Flavor & Distribution
-- **fdroid** flavor only (no Google Play / Firebase dependencies)
+- **fdroid** flavor is the default (fork builds do not use Google Play Services or Firebase)
 - UnifiedPush via self-hosted ntfy (no FCM / Google Play Services)
-- No analytics, telemetry, or crash reporting to external services
+- Analytics: the app sends anonymous usage statistics (event and screen names plus a random device identifier, never message content) only to our own self-hosted Umami server. It is the only analytics we use and it helps us improve the app. You can turn it off in Settings → Analytics.
 
 ### Build & Signing
-- Production keystore: `~/fionaro-chat-release.jks` (passwords in `gradle.properties` or environment)
+- Production keystore path and passwords are supplied at build time through environment variables (never committed)
 - Build command:
   ```bash
   FIONARO_KEYSTORE_PATH=... FIONARO_KEYSTORE_PASSWORD=... FIONARO_KEY_PASSWORD=... \
@@ -68,15 +68,13 @@ All Matrix and related endpoints point to the Fionaro infrastructure:
 - Served from `register.html` on the homeserver
 
 ### Security & Privacy
-- No telemetry, analytics, or crash reporting to third parties
-- No Firebase Crashlytics, no Google Analytics
-- No Sentry, no PostHog
-- All traffic routed through Fionaro infrastructure only
+- Anonymous usage statistics go only to our self-hosted Umami server (event/screen names and a random device identifier, never message content); you can turn them off in Settings → Analytics
+- No PostHog, Sentry, Firebase Crashlytics, Google Analytics or other third-party analytics/crash SDKs are included in the build
+- All Matrix, call, push and analytics traffic is routed through Fionaro-controlled infrastructure
 
 ### Removed / Disabled
 - Firebase / Google Play Services dependencies
-- Play Store flavor
-- Google Play Services flavor
+- Play Store releases (the upstream `gplay` flavor remains in the build but is not produced by this fork)
 - Firebase Crashlytics
 - Google Analytics / Firebase Analytics
 - Sentry / PostHog integration
@@ -86,15 +84,16 @@ All Matrix and related endpoints point to the Fionaro infrastructure:
 ## Build Instructions
 
 ### Prerequisites
-- Android SDK (API 34)
-- Java 21 (OpenJDK)
-- `fionaro-chat-release.jks` keystore file
-- `gradle.properties` with:
+- Android SDK (API 37; `minSdk` 24)
+- JDK 21 (OpenJDK)
+- A release keystore file, referenced by the `FIONARO_KEYSTORE_PATH` environment variable
+- The release signing environment variables set for the build:
+  ```bash
+  export FIONARO_KEYSTORE_PATH=/path/to/release.keystore
+  export FIONARO_KEYSTORE_PASSWORD=...
+  export FIONARO_KEY_PASSWORD=...
   ```
-  FIONARO_KEYSTORE_PATH=/path/to/fionaro-chat-release.jks
-  FIONARO_KEYSTORE_PASSWORD=...
-  FIONARO_KEY_PASSWORD=...
-  ```
+  Release tasks fail with an explicit error if any of them is missing; debug builds do not need them.
 
 ### Build
 ```bash

@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.WidgetCapabilitiesProvider
 import org.matrix.rustcomponents.sdk.makeWidgetDriver
+import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.coroutineContext
 
@@ -52,7 +53,7 @@ class RustWidgetDriver(
             try {
                 while (isActive) {
                     driverAndHandle.handle.recv()?.let {
-                        android.util.Log.e("FionaroCall", "RustSDK recv response: $it")
+                        Timber.v("Widget driver received a message (%d chars)", it.length)
                         incomingMessages.emit(it)
                     }
                 }
@@ -64,7 +65,7 @@ class RustWidgetDriver(
 
     override suspend fun send(message: String) {
         try {
-            android.util.Log.e("FionaroCall", "RustSDK send: $message")
+            Timber.v("Widget driver sends a message (%d chars)", message.length)
             driverAndHandle.handle.send(message)
         } catch (_: IllegalStateException) {
             // The handle is closed, ignore

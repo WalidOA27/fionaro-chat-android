@@ -29,7 +29,6 @@ import io.element.android.services.analytics.impl.log.analyticsTag
 import io.element.android.services.analytics.impl.store.AnalyticsStore
 import io.element.android.services.analyticsproviders.api.AnalyticsProvider
 import io.element.android.services.analyticsproviders.api.AnalyticsTransaction
-import io.element.android.services.analyticsproviders.umami.UmamiTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -50,7 +49,7 @@ class DefaultAnalyticsService(
 ) : AnalyticsService, SessionListener {
     private val pendingLongRunningTransactions = ConcurrentHashMap<AnalyticsLongRunningTransaction, AnalyticsTransaction>()
 
-    // Auto-accept analytics (self-hosted Umami, no third parties)
+    // Analytics is on by default (self-hosted Umami only). The user can turn it off in Settings; the stored choice always wins.
     private val userConsent = AtomicBoolean(true)
 
     // Cache for the properties to send
@@ -121,7 +120,6 @@ class DefaultAnalyticsService(
 
     override fun capture(event: VectorAnalyticsEvent) {
         Timber.tag(analyticsTag.value).d("capture($event)")
-        UmamiTracker.capture(event)
         if (userConsent.get()) {
             analyticsProviders.onEach { it.capture(event) }
         }
@@ -129,7 +127,6 @@ class DefaultAnalyticsService(
 
     override fun screen(screen: VectorAnalyticsScreen) {
         Timber.tag(analyticsTag.value).d("screen($screen)")
-        UmamiTracker.screen(screen)
         if (userConsent.get()) {
             analyticsProviders.onEach { it.screen(screen) }
         }
@@ -144,11 +141,12 @@ class DefaultAnalyticsService(
     }
 
     override fun updateSuperProperties(updatedProperties: SuperProperties) {
-        this.analyticsProviders.onEach { it.updateSuperProperties(updatedProperties) }
+        if (userConsent.get()) {
+            analyticsProviders.onEach { it.updateSuperProperties(updatedProperties) }
+        }
     }
 
     override fun trackError(throwable: Throwable) {
-        UmamiTracker.trackError(throwable)
         if (userConsent.get()) {
             analyticsProviders.onEach { it.trackError(throwable) }
         }

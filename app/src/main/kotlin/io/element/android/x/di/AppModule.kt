@@ -28,6 +28,7 @@ import io.element.android.libraries.di.BaseDirectory
 import io.element.android.libraries.di.CacheDirectory
 import io.element.android.libraries.di.annotations.AppCoroutineScope
 import io.element.android.libraries.di.annotations.ApplicationContext
+import io.element.android.libraries.di.identifiers.SentrySdkDsn
 import io.element.android.libraries.recentemojis.api.EmojibaseProvider
 import io.element.android.libraries.recentemojis.impl.DefaultEmojibaseProvider
 import io.element.android.x.BuildConfig
@@ -120,5 +121,10 @@ object AppModule {
     @SingleIn(AppScope::class)
     fun providesEmojibaseProvider(@ApplicationContext context: Context): EmojibaseProvider {
         return DefaultEmojibaseProvider(context)
+    }
+
+    @Provides
+    fun providesSentrySdkDsn(): SentrySdkDsn? {
+        return BuildConfig.SENTRY_SDK_DSN.takeIf { it.isNotBlank() }?.let(::SentrySdkDsn)
     }
 }

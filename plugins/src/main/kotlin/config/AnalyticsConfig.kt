@@ -20,5 +20,10 @@ sealed interface AnalyticsConfig {
         }
     }
 
+    /**
+     * Self-hosted analytics only, using Umami. No third-party analytics SDK is included in the build.
+     */
+    object UmamiOnly : AnalyticsConfig
+
     object Disabled : AnalyticsConfig
 }

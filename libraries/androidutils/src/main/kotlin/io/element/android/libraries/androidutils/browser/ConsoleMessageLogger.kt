@@ -8,7 +8,6 @@
 
 package io.element.android.libraries.androidutils.browser
 
-import android.util.Log
 import android.webkit.ConsoleMessage
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
@@ -27,12 +26,6 @@ class DefaultConsoleMessageLogger : ConsoleMessageLogger {
         tag: String,
         consoleMessage: ConsoleMessage,
     ) {
-        val priority = when (consoleMessage.messageLevel()) {
-            ConsoleMessage.MessageLevel.ERROR -> Log.ERROR
-            ConsoleMessage.MessageLevel.WARNING -> Log.WARN
-            else -> Log.DEBUG
-        }
-
         // Avoid logging any messages that contain "password" to prevent leaking sensitive information
         if (consoleMessage.message().contains("password=")) {
             return
@@ -46,6 +39,10 @@ class DefaultConsoleMessageLogger : ConsoleMessageLogger {
             append(consoleMessage.message())
         }
 
-        Timber.tag(tag).log(priority = priority, message = message)
+        when (consoleMessage.messageLevel()) {
+            ConsoleMessage.MessageLevel.ERROR -> Timber.tag(tag).e(message)
+            ConsoleMessage.MessageLevel.WARNING -> Timber.tag(tag).w(message)
+            else -> Timber.tag(tag).d(message)
+        }
     }
 }
