@@ -25,12 +25,12 @@ All Matrix and related endpoints point to the Fionaro infrastructure:
 - TURN: `turn.fionaro.pw`
 
 ### Flavor & Distribution
-- **fdroid** flavor only (no Google Play / Firebase dependencies)
+- **fdroid** flavor is the default (fork builds do not use Google Play Services or Firebase)
 - UnifiedPush via self-hosted ntfy (no FCM / Google Play Services)
 - No analytics, telemetry, or crash reporting to external services
 
 ### Build & Signing
-- Production keystore: `~/fionaro-chat-release.jks` (passwords in `gradle.properties` or environment)
+- Production keystore path and passwords are supplied at build time through environment variables (never committed)
 - Build command:
   ```bash
   FIONARO_KEYSTORE_PATH=... FIONARO_KEYSTORE_PASSWORD=... FIONARO_KEY_PASSWORD=... \
@@ -75,8 +75,7 @@ All Matrix and related endpoints point to the Fionaro infrastructure:
 
 ### Removed / Disabled
 - Firebase / Google Play Services dependencies
-- Play Store flavor
-- Google Play Services flavor
+- Play Store releases (the upstream `gplay` flavor remains in the build but is not produced by this fork)
 - Firebase Crashlytics
 - Google Analytics / Firebase Analytics
 - Sentry / PostHog integration
@@ -86,15 +85,16 @@ All Matrix and related endpoints point to the Fionaro infrastructure:
 ## Build Instructions
 
 ### Prerequisites
-- Android SDK (API 34)
-- Java 21 (OpenJDK)
-- `fionaro-chat-release.jks` keystore file
-- `gradle.properties` with:
+- Android SDK (API 37; `minSdk` 24)
+- JDK 21 (OpenJDK)
+- A release keystore file, referenced by the `FIONARO_KEYSTORE_PATH` environment variable
+- The release signing environment variables set for the build:
+  ```bash
+  export FIONARO_KEYSTORE_PATH=/path/to/release.keystore
+  export FIONARO_KEYSTORE_PASSWORD=...
+  export FIONARO_KEY_PASSWORD=...
   ```
-  FIONARO_KEYSTORE_PATH=/path/to/fionaro-chat-release.jks
-  FIONARO_KEYSTORE_PASSWORD=...
-  FIONARO_KEY_PASSWORD=...
-  ```
+  Release tasks fail with an explicit error if any of them is missing; debug builds do not need them.
 
 ### Build
 ```bash
