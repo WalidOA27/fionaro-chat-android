@@ -11,7 +11,6 @@ package io.element.android.features.call.impl.ui
 import android.annotation.SuppressLint
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
-import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
@@ -240,7 +239,6 @@ private fun WebView.setup(
         }
 
         override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
-            android.util.Log.e("FionaroCallJS", consoleMessage.messageLevel().toString() + " " + consoleMessage.message() + " -- " + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber())
             onConsoleMessage(consoleMessage)
             return true
         }

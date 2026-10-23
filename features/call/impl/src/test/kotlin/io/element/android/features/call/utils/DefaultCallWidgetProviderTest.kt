@@ -18,6 +18,7 @@ import io.element.android.libraries.matrix.test.FakeMatrixClient
 import io.element.android.libraries.matrix.test.FakeMatrixClientProvider
 import io.element.android.libraries.matrix.test.room.FakeBaseRoom
 import io.element.android.libraries.matrix.test.room.FakeJoinedRoom
+import io.element.android.libraries.matrix.test.room.aRoomInfo
 import io.element.android.libraries.matrix.test.widget.FakeCallWidgetSettingsProvider
 import io.element.android.libraries.matrix.test.widget.FakeMatrixWidgetDriver
 import io.element.android.libraries.preferences.api.store.AppPreferencesStore
@@ -127,6 +128,42 @@ class DefaultCallWidgetProviderTest {
         assertThat(settingsProvider.providedBaseUrls).containsExactly("https://custom.element.io")
     }
 
+    @Test
+    fun `getWidget - uses the original room for a group call and returns the room path`() = runTest {
+        val room = FakeJoinedRoom(
+            baseRoom = FakeBaseRoom(initialRoomInfo = aRoomInfo(isDm = false)),
+            generateWidgetWebViewUrlResult = { _, _, _, _ -> Result.success(CALL_URL) },
+            getWidgetDriverResult = { Result.success(FakeMatrixWidgetDriver()) },
+        )
+        val client = FakeMatrixClient().apply {
+            givenGetRoomResult(A_ROOM_ID, room)
+        }
+        val provider = createProvider(matrixClientProvider = FakeMatrixClientProvider { Result.success(client) })
+
+        val result = provider.getWidget(A_SESSION_ID, A_ROOM_ID, false, "clientId", "languageTag", "theme").getOrThrow()
+
+        assertThat(result.preCreatedRoomId).isEqualTo(A_ROOM_ID.value)
+        assertThat(result.url).isEqualTo("$FINAL_CALL_URL_PREFIX&skipLobby=true")
+    }
+
+    @Test
+    fun `getWidget - uses the original room for a DM call and never asks for a new room`() = runTest {
+        val room = FakeJoinedRoom(
+            baseRoom = FakeBaseRoom(initialRoomInfo = aRoomInfo(isDm = true)),
+            generateWidgetWebViewUrlResult = { _, _, _, _ -> Result.success(CALL_URL) },
+            getWidgetDriverResult = { Result.success(FakeMatrixWidgetDriver()) },
+        )
+        val client = FakeMatrixClient().apply {
+            givenGetRoomResult(A_ROOM_ID, room)
+        }
+        val provider = createProvider(matrixClientProvider = FakeMatrixClientProvider { Result.success(client) })
+
+        val result = provider.getWidget(A_SESSION_ID, A_ROOM_ID, false, "clientId", "languageTag", "theme").getOrThrow()
+
+        assertThat(result.preCreatedRoomId).isEqualTo(A_ROOM_ID.value)
+        assertThat(result.url).isEqualTo("$FINAL_CALL_URL_PREFIX&skipLobby=true")
+    }
+
     private fun createProvider(
         matrixClientProvider: MatrixClientProvider = FakeMatrixClientProvider(),
         appPreferencesStore: AppPreferencesStore = InMemoryAppPreferencesStore(),
@@ -138,4 +175,9 @@ class DefaultCallWidgetProviderTest {
         callWidgetSettingsProvider = callWidgetSettingsProvider,
         activeRoomsHolder = activeRoomsHolder,
     )
+
+    private companion object {
+        const val CALL_URL = "https://call.fionaro.pw/#?roomId=%21aRoomId%3Adomain&widgetId=widget-id"
+        const val FINAL_CALL_URL_PREFIX = "https://call.fionaro.pw/room/#?roomId=%21aRoomId%3Adomain&widgetId=widget-id"
+    }
 }

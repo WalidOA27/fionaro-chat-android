@@ -17,18 +17,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import io.element.android.libraries.matrix.api.MatrixClientProvider
-import io.element.android.libraries.matrix.api.createroom.CreateRoomParameters
-import io.element.android.libraries.matrix.api.createroom.RoomPreset
-import io.element.android.libraries.matrix.api.core.SessionId
-import io.element.android.libraries.matrix.api.roomdirectory.RoomVisibility
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
-import java.io.ByteArrayInputStream
-import java.net.HttpURLConnection
-import java.net.URL
-import java.nio.charset.Charset
 import androidx.core.net.toUri
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
@@ -36,6 +24,10 @@ import androidx.webkit.WebViewFeature
 import io.element.android.features.call.impl.BuildConfig
 import kotlinx.coroutines.flow.MutableSharedFlow
 import timber.log.Timber
+import java.io.ByteArrayInputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.nio.charset.Charset
 
 class WebViewWidgetMessageInterceptor(
     private val webView: WebView,
@@ -49,8 +41,6 @@ class WebViewWidgetMessageInterceptor(
         const val LISTENER_NAME = "elementX"
     }
 
-    internal var matrixClientProvider: MatrixClientProvider? = null
-    internal var callSessionId: String = ""
     internal var preCreatedRoomId: String? = null
     private var mainDocumentIntercepted = false
 
@@ -65,7 +55,7 @@ class WebViewWidgetMessageInterceptor(
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                android.util.Log.e("FionaroCall", "onPageStarted fired, webView hash=" + System.identityHashCode(view) + ", url=$url")
+                Timber.d("onPageStarted fired, webView hash=%d", System.identityHashCode(view))
 
                 // Due to https://github.com/element-hq/element-x-android/issues/4097
                 // we need to supply a logging implementation that correctly includes
@@ -208,88 +198,74 @@ class WebViewWidgetMessageInterceptor(
             }
 
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest): WebResourceResponse? {
-            val urlStr = request.url.toString()
-            if (urlStr.contains("config.json")) android.util.Log.e("FionaroCallJS", "Intercept: " + request.url)
-            if (urlStr.contains("/_matrix/") && request.method == "OPTIONS") {
-                android.util.Log.e("FionaroCall", "CORS preflight intercepted: " + urlStr)
-                val corsHeaders = mapOf(
-                    "Access-Control-Allow-Origin" to "*",
-                    "Access-Control-Allow-Methods" to "GET, HEAD, POST, PUT, DELETE, OPTIONS",
-                    "Access-Control-Allow-Headers" to "X-Requested-With, Content-Type, Authorization, Date"
-                )
-                return WebResourceResponse("text/plain", "UTF-8", 200, "OK", corsHeaders, ByteArrayInputStream(ByteArray(0)))
-            }
-            if (urlStr.contains("/_matrix/client/v3/createRoom") && matrixClientProvider != null && callSessionId.isNotEmpty()) {
-                if (preCreatedRoomId != null) {
-                    val json = "{\"room_id\":\"" + preCreatedRoomId + "\"}"
-                    android.util.Log.e("FionaroCall", "createRoom intercepted, returning pre-created room: " + json)
+                val urlStr = request.url.toString()
+                if (urlStr.contains("config.json")) {
+                    Timber.d("Intercepting a config.json request")
+                }
+                if (urlStr.contains("/_matrix/") && request.method == "OPTIONS") {
+                    Timber.d("CORS preflight intercepted")
+                    val corsHeaders = mapOf(
+                        "Access-Control-Allow-Origin" to "*",
+                        "Access-Control-Allow-Methods" to "GET, HEAD, POST, PUT, DELETE, OPTIONS",
+                        "Access-Control-Allow-Headers" to "X-Requested-With, Content-Type, Authorization, Date"
+                    )
+                    return WebResourceResponse("text/plain", "UTF-8", 200, "OK", corsHeaders, ByteArrayInputStream(ByteArray(0)))
+                }
+                if (urlStr.contains("/_matrix/client/v3/createRoom")) {
                     val corsHeaders = mapOf("Access-Control-Allow-Origin" to "*")
-                    return WebResourceResponse("application/json", "UTF-8", 200, "OK", corsHeaders, ByteArrayInputStream(json.toByteArray()))
-                }
-                android.util.Log.e("FionaroCall", "createRoom intercepted, proxying with session token")
-                try {
-                    return runBlocking(Dispatchers.IO) {
-                        withTimeout(5000L) {
-                            val client = matrixClientProvider!!.getOrRestore(SessionId(callSessionId)).getOrNull()
-                            if (client != null) {
-                                val params = CreateRoomParameters(
-                                    name = null,
-                                    isEncrypted = false,
-                                    visibility = RoomVisibility.Private,
-                                    preset = RoomPreset.PRIVATE_CHAT,
-                                )
-                                val result = client.createRoom(params)
-                                result.fold(
-                                    onSuccess = { roomId ->
-                                        val json = "{\"room_id\":\"" + roomId.value + "\"}"
-                                        android.util.Log.e("FionaroCall", "createRoom SUCCESS: " + json)
-                                        injectUpdateState(roomId.value)
-                                        val corsHeaders = mapOf("Access-Control-Allow-Origin" to "*")
-                                        WebResourceResponse("application/json", "UTF-8", 200, "OK", corsHeaders, ByteArrayInputStream(json.toByteArray()))
-                                    },
-                                    onFailure = { error ->
-                                        android.util.Log.e("FionaroCall", "createRoom FAILED: " + error.message)
-                                        val errorJson = "{\"errcode\":\"M_UNKNOWN\",\"error\":\"" + (error.message ?: "unknown") + "\"}"
-                                        WebResourceResponse("application/json", "UTF-8", 500, "OK", mapOf("Access-Control-Allow-Origin" to "*"), ByteArrayInputStream(errorJson.toByteArray()))
-                                    }
-                                )
-                            } else {
-                                android.util.Log.e("FionaroCall", "createRoom: no MatrixClient")
-                                null
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("FionaroCall", "createRoom exception: " + e.message)
-                    return null
-                }
-            }
-            if (!mainDocumentIntercepted && request.isForMainFrame && request.method == "GET" &&
-                urlStr.matches(Regex("^https?://call\\.fionaro\\.pw(/|\$|\\?).*"))) {
-                mainDocumentIntercepted = true
-                android.util.Log.e("FionaroCall", "Main document intercepted, injecting permission primer")
-                try {
-                    val conn = URL(urlStr).openConnection() as HttpURLConnection
-                    conn.connectTimeout = 5000
-                    conn.readTimeout = 5000
-                    conn.instanceFollowRedirects = true
-                    val bytes = conn.inputStream.readBytes()
-                    val contentType = conn.contentType ?: "text/html; charset=UTF-8"
-                    val charset = contentType.substringAfter("charset=", "UTF-8").split(";")[0].trim()
-                    val html = String(bytes, Charset.forName(charset))
-                    val primingScript = "<script>(async function(){try{const s=await navigator.mediaDevices.getUserMedia({audio:true,video:true});s.getTracks().forEach(function(t){t.stop()});}catch(e){}})();</script>"
-                    val modifiedHtml = if ("</head>" in html) {
-                        html.replace("</head>", "$primingScript</head>")
-                    } else if ("<body" in html) {
-                        html.replace("<body", "$primingScript<body")
+                    val sharedRoomId = preCreatedRoomId
+                    return if (sharedRoomId != null) {
+                        // Never create a room here. The call already runs in the room where the
+                        // user started it, and the widget driver below is bound to that room.
+                        // The previous fallback called client.createRoom(), which left one orphan
+                        // room behind every time Element Call issued this request.
+                        Timber.d("createRoom intercepted, returning the shared call room")
+                        val json = "{\"room_id\":\"$sharedRoomId\"}"
+                        WebResourceResponse("application/json", "UTF-8", 200, "OK", corsHeaders, ByteArrayInputStream(json.toByteArray()))
                     } else {
-                        "$primingScript$html"
+                        // The interceptor is configured before the URL is loaded, so this should
+                        // not happen. Refuse instead of creating an unrelated room.
+                        Timber.w("createRoom intercepted before the call room was known, refusing")
+                        val errorJson = "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"Call rooms are not created by the widget\"}"
+                        WebResourceResponse("application/json", "UTF-8", 403, "Forbidden", corsHeaders, ByteArrayInputStream(errorJson.toByteArray()))
                     }
-                    return WebResourceResponse("text/html", charset, 200, "OK", emptyMap(), ByteArrayInputStream(modifiedHtml.toByteArray(Charset.forName(charset))))
-                } catch (e: Exception) {
-                    android.util.Log.e("FionaroCall", "Main document intercept failed: " + e.message)
                 }
-            }
+                if (!mainDocumentIntercepted && request.isForMainFrame && request.method == "GET" &&
+                    urlStr.matches(Regex("^https?://call\\.fionaro\\.pw(/|\$|\\?).*"))) {
+                    mainDocumentIntercepted = true
+                    Timber.d("Main document intercepted, injecting permission primer")
+                    try {
+                        val conn = URL(urlStr).openConnection() as HttpURLConnection
+                        conn.connectTimeout = 5000
+                        conn.readTimeout = 5000
+                        conn.instanceFollowRedirects = true
+                        val bytes = conn.inputStream.readBytes()
+                        val contentType = conn.contentType ?: "text/html; charset=UTF-8"
+                        val charset = contentType.substringAfter("charset=", "UTF-8").split(";")[0].trim()
+                        val html = String(bytes, Charset.forName(charset))
+                        val primingScript = "<script>(async function(){try{" +
+                            "const s=await navigator.mediaDevices.getUserMedia({audio:true,video:true});" +
+                            "s.getTracks().forEach(function(t){t.stop()});" +
+                            "}catch(e){}})();</script>"
+                        val modifiedHtml = if ("</head>" in html) {
+                            html.replace("</head>", "$primingScript</head>")
+                        } else if ("<body" in html) {
+                            html.replace("<body", "$primingScript<body")
+                        } else {
+                            "$primingScript$html"
+                        }
+                        return WebResourceResponse(
+                            "text/html",
+                            charset,
+                            200,
+                            "OK",
+                            emptyMap(),
+                            ByteArrayInputStream(modifiedHtml.toByteArray(Charset.forName(charset)))
+                        )
+                    } catch (e: Exception) {
+                        Timber.e("Main document intercept failed (%s)", e.javaClass.simpleName)
+                    }
+                }
                 return assetLoader.shouldInterceptRequest(request.url)
             }
 
@@ -330,78 +306,12 @@ class WebViewWidgetMessageInterceptor(
     }
 
     override fun sendMessage(message: String) {
-        if (message.contains("\"action\"")) {
-            android.util.Log.e("FionaroCall", "sendMessage (native->JS): " + message.take(2000))
-        }
+        Timber.v("Sending a widget message to the WebView (%d chars)", message.length)
         webView.evaluateJavascript("postMessage($message, '*')", null)
     }
 
     private fun onMessageReceived(json: String?) {
         // Here is where we would handle the messages from the WebView, passing them to the Rust SDK
         json?.let { interceptedMessages.tryEmit(it) }
-    }
-
-    private fun injectUpdateState(roomId: String) {
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            try {
-                val webUrl = webView.url ?: return@post
-                val fragment = webUrl.substringAfter("#", "").trimStart('?')
-                val params = fragment.split("&").associate {
-                    val parts = it.split("=", limit = 2)
-                    if (parts.size == 2) parts[0] to java.net.URLDecoder.decode(parts[1], "UTF-8")
-                    else parts[0] to ""
-                }
-
-                // DIAG: log fragment and parsed params to diagnose URL parsing
-                android.util.Log.e("FionaroCall", "injectUpdateState: webView.url=$webUrl")
-                android.util.Log.e("FionaroCall", "injectUpdateState: fragment=$fragment")
-                android.util.Log.e("FionaroCall", "injectUpdateState: params=$params")
-                android.util.Log.e("FionaroCall", "injectUpdateState: params[userId]=${params["userId"]} params[widgetId]=${params["widgetId"]}")
-
-                val widgetId = params["widgetId"] ?: run {
-                    android.util.Log.e("FionaroCall", "injectUpdateState: MISSING widgetId — returning early")
-                    return@post
-                }
-                val userId = params["userId"] ?: run {
-                    android.util.Log.e("FionaroCall", "injectUpdateState: MISSING userId — returning early")
-                    return@post
-                }
-                val displayName = params["displayName"] ?: userId.substringBefore(":")
-
-                val ts = System.currentTimeMillis()
-                val tsPlus1 = ts + 1
-                val dollar = "$"
-                val eventIdCreate = dollar + "fionaro" + ts.toString(36) + "0"
-                val eventIdMember = dollar + "fionaro" + (tsPlus1).toString(36) + "1"
-
-                val js = buildString {
-                    append("window.postMessage({")
-                    append("api:\"toWidget\",widgetId:\"").append(widgetId).append("\",")
-                    append("requestId:\"fionaro-synthetic-update-state\",action:\"update_state\",")
-                    append("data:{state:[{")
-                    append("type:\"m.room.create\",state_key:\"\",room_id:\"").append(roomId).append("\",")
-                    append("content:{creator:\"").append(userId).append("\",room_version:\"10\"},")
-                    append("event_id:\"").append(eventIdCreate).append("\",origin_server_ts:").append(ts).append(",")
-                    append("sender:\"").append(userId).append("\"")
-                    append("},{")
-                    append("type:\"m.room.member\",state_key:\"").append(userId).append("\",")
-                    append("room_id:\"").append(roomId).append("\",")
-                    append("content:{displayname:\"").append(displayName).append("\",membership:\"join\"},")
-                    append("event_id:\"").append(eventIdMember).append("\",origin_server_ts:").append(tsPlus1).append(",")
-                    append("sender:\"").append(userId).append("\",user_id:\"").append(userId).append("\"")
-                    append("}]},response:{}},'*')")
-                    append(";console.log('[FionaroDiag] Synthetic update_state injected for room ").append(roomId).append("');")
-                }
-
-                try {
-                    webView.evaluateJavascript(js, null)
-                    android.util.Log.e("FionaroCall", "injectUpdateState: evaluateJavascript succeeded for room: $roomId")
-                } catch (e: Exception) {
-                    android.util.Log.e("FionaroCall", "injectUpdateState: evaluateJavascript failed: " + e.message)
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("FionaroCall", "injectUpdateState exception: " + e.message)
-            }
-        }
     }
 }

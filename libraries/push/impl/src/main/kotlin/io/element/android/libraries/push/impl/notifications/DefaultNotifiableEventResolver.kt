@@ -139,7 +139,9 @@ class DefaultNotifiableEventResolver(
         client: MatrixClient,
         userId: SessionId,
     ): Result<ResolvedPushEvent> = runCatchingExceptions {
-        android.util.Log.e("FionaroCall", "NotificationDispatch: eventId=${this.eventId?.value} type=${this.content?.javaClass?.simpleName} room=${roomId.value}")
+        Timber.d(
+            "NotificationDispatch: eventId=${eventId.value} type=${content.javaClass.simpleName} room=${roomId.value}"
+        )
         when (val content = this.content) {
             is NotificationContent.MessageLike.RoomMessage -> {
                 val showMediaPreview = client.mediaPreviewService.getMediaPreviewValue().isPreviewEnabled(roomJoinRule)
