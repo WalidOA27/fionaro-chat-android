@@ -15,7 +15,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.net.http.X509TrustManagerExtensions
 import android.os.Build
-import android.util.Log
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.security.KeyStore
@@ -37,6 +36,7 @@ import java.util.EnumSet
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 import javax.security.auth.x500.X500Principal
+import timber.log.Timber
 
 // If this is updated, update the Rust definition too.
 // Marked private as this is not meant to be used in Android code.
@@ -79,7 +79,7 @@ internal object CertificateVerifier {
         val availableTrustManagers = try {
             factory.trustManagers
         } catch (e: RuntimeException) {
-            Log.w(TAG, "exception thrown creating a TrustManager: $e")
+            Timber.tag(TAG).w("exception thrown creating a TrustManager: $e")
             return null
         }
 
@@ -91,7 +91,7 @@ internal object CertificateVerifier {
             }
         }
 
-        Log.e(TAG, "failed to find a usable trust manager")
+        Timber.tag(TAG).e("failed to find a usable trust manager")
         return null
     }
 
@@ -154,7 +154,7 @@ internal object CertificateVerifier {
         val availableTrustManagers = try {
             factory.trustManagers
         } catch (e: RuntimeException) {
-            Log.w(TAG, "exception thrown creating a TrustManager: $e")
+            Timber.tag(TAG).w("exception thrown creating a TrustManager: $e")
             return rootCAs
         }
 
@@ -380,7 +380,7 @@ internal object CertificateVerifier {
             }
         } else {
             // This is allowed to be skipped since revocation checking is best-effort.
-            Log.w(TAG, "did not attempt to validate OCSP due to Android version")
+            Timber.tag(TAG).w("did not attempt to validate OCSP due to Android version")
         }
 
         return VerificationResult(StatusCode.Ok)
@@ -395,7 +395,7 @@ internal object CertificateVerifier {
             return false
         } catch (_: NullPointerException) {
             // According to Chromium's implementation, this can crash when the EKU data is malformed.
-            Log.w(TAG, "exception handling certificate EKU")
+            Timber.tag(TAG).w("exception handling certificate EKU")
             return false
         } ?: return true // If the list is empty, we have nothing to do.
 
@@ -459,7 +459,7 @@ internal object CertificateVerifier {
                         // system's root trust store is not a valid X509 certificate (extremely unlikely error).
                         // The hash doesn't tell us any sensitive information about the invalid cert or reveal any of
                         // its contents - it just lets us ID the bad file if a user is having TLS failure issues.
-                        Log.e(TAG, "anchor is not a certificate, alias: $alias")
+                        Timber.tag(TAG).e("anchor is not a certificate, alias: $alias")
                         continue
                         // If subject and public key match, it's a system root.
                     } else {
