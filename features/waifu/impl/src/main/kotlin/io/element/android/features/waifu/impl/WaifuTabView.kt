@@ -21,16 +21,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
-import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed as staggeredItemsIndexed
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -41,10 +36,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import io.element.android.compound.theme.ElementTheme
+import io.element.android.libraries.designsystem.preview.ElementPreview
+import io.element.android.libraries.designsystem.preview.PreviewsDayNight
 import io.element.android.libraries.designsystem.theme.components.Button
+import io.element.android.libraries.designsystem.theme.components.CircularProgressIndicator
 import io.element.android.libraries.designsystem.theme.components.Switch
+import io.element.android.libraries.designsystem.theme.components.Text
+import io.element.android.libraries.ui.strings.CommonStrings
+import androidx.compose.foundation.lazy.items as lazyItems
+import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed as staggeredItemsIndexed
 
 @Composable
 fun WaifuTabView(
@@ -63,15 +68,23 @@ fun WaifuTabView(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(text = "SFW", style = MaterialTheme.typography.labelLarge)
+            Text(
+                text = stringResource(R.string.screen_waifu_toggle_sfw),
+                style = ElementTheme.typography.fontBodySmMedium,
+                color = ElementTheme.colors.textPrimary,
+            )
             Switch(
                 checked = state.isNsfw,
                 onCheckedChange = { state.eventSink(WaifuEvent.ToggleNsfw(it)) },
             )
-            Text(text = "NSFW", style = MaterialTheme.typography.labelLarge)
+            Text(
+                text = stringResource(R.string.screen_waifu_toggle_nsfw),
+                style = ElementTheme.typography.fontBodySmMedium,
+                color = ElementTheme.colors.textPrimary,
+            )
             Spacer(modifier = Modifier.weight(1f))
             Button(
-                text = "Actualizar",
+                text = stringResource(R.string.screen_waifu_action_refresh),
                 onClick = { state.eventSink(WaifuEvent.Retry) },
                 showProgress = state.isLoading,
             )
@@ -86,20 +99,29 @@ fun WaifuTabView(
                 val selected = tag.slug in state.selectedTags
                 Text(
                     text = tag.name,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimary
-                    else MaterialTheme.colorScheme.onSurface,
+                    style = ElementTheme.typography.fontBodySmMedium,
+                    color = if (selected) {
+                        ElementTheme.colors.textOnSolidPrimary
+                    } else {
+                        ElementTheme.colors.textPrimary
+                    },
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
                         .background(
-                            if (selected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceVariant
+                            if (selected) {
+                                ElementTheme.colors.bgAccentRest
+                            } else {
+                                ElementTheme.colors.bgSubtleSecondary
+                            }
                         )
                         .clickable { state.eventSink(WaifuEvent.ToggleTag(tag.slug)) }
                         .border(
                             width = 1.dp,
-                            color = if (selected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outlineVariant,
+                            color = if (selected) {
+                                ElementTheme.colors.bgAccentRest
+                            } else {
+                                ElementTheme.colors.borderInteractiveSecondary
+                            },
                             shape = RoundedCornerShape(16.dp),
                         )
                         .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -115,15 +137,23 @@ fun WaifuTabView(
             }
 
             state.error != null -> {
+                val errorText = when (state.error) {
+                    WaifuError.NsfwForbidden -> stringResource(R.string.screen_waifu_error_nsfw_forbidden)
+                    WaifuError.Generic -> stringResource(R.string.screen_waifu_error_generic)
+                }
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(text = state.error, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = errorText,
+                        style = ElementTheme.typography.fontBodyMdRegular,
+                        color = ElementTheme.colors.textPrimary,
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
-                        text = "Reintentar",
+                        text = stringResource(CommonStrings.action_retry),
                         onClick = { state.eventSink(WaifuEvent.Retry) },
                     )
                 }
@@ -131,7 +161,11 @@ fun WaifuTabView(
 
             state.images.isEmpty() -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(text = "Sin resultados", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = stringResource(CommonStrings.common_no_results),
+                        style = ElementTheme.typography.fontBodyMdRegular,
+                        color = ElementTheme.colors.textSecondary,
+                    )
                 }
             }
 
@@ -194,11 +228,12 @@ fun WaifuTabView(
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 Text(
-                                    text = "Has visto todas las imágenes",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    text = stringResource(R.string.screen_waifu_session_limit),
+                                    style = ElementTheme.typography.fontBodyMdRegular,
+                                    color = ElementTheme.colors.textPrimary,
                                 )
                                 Button(
-                                    text = "Actualizar",
+                                    text = stringResource(R.string.screen_waifu_action_refresh),
                                     onClick = { state.eventSink(WaifuEvent.Retry) },
                                     showProgress = state.isLoading,
                                 )
@@ -228,20 +263,30 @@ private fun WaifuCard(
     } else {
         3f / 4f
     }
+    val placeholderColor = ElementTheme.colors.bgSubtleSecondary
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(placeholderColor)
             .clickable(onClick = onClick),
     ) {
         AsyncImage(
             model = image.url,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.screen_waifu_a11y_image),
             contentScale = ContentScale.FillWidth,
-            placeholder = ColorPainter(MaterialTheme.colorScheme.surfaceVariant),
+            placeholder = ColorPainter(placeholderColor),
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(ratio),
         )
     }
+}
+
+@PreviewsDayNight
+@Composable
+internal fun WaifuTabViewPreview(@PreviewParameter(WaifuStateProvider::class) state: WaifuState) = ElementPreview {
+    WaifuTabView(
+        state = state,
+        modifier = Modifier.fillMaxSize(),
+    )
 }

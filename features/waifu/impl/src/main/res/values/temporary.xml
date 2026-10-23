@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="screen_waifu_a11y_image">"Waifu image"</string>
+    <string name="screen_waifu_a11y_next_image">"Next image"</string>
+    <string name="screen_waifu_a11y_previous_image">"Previous image"</string>
+    <string name="screen_waifu_action_download">"Download"</string>
+    <string name="screen_waifu_action_refresh">"Refresh"</string>
+    <string name="screen_waifu_download_failure">"Could not save the image"</string>
+    <string name="screen_waifu_download_success">"Saved to Downloads"</string>
+    <string name="screen_waifu_error_generic">"Could not load the images"</string>
+    <string name="screen_waifu_error_nsfw_forbidden">"NSFW not available: check the API key permissions"</string>
+    <string name="screen_waifu_image_counter">"%1$d / %2$d"</string>
+    <string name="screen_waifu_session_limit">"You have seen all the images"</string>
+    <string name="screen_waifu_toggle_nsfw">"NSFW"</string>
+    <string name="screen_waifu_toggle_sfw">"SFW"</string>
+</resources>

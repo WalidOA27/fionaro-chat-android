@@ -14,6 +14,7 @@ import android.provider.MediaStore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -28,6 +29,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import java.io.File
+import kotlin.coroutines.cancellation.CancellationException
 
 @Inject
 class WaifuTabPresenter(
@@ -42,13 +44,14 @@ class WaifuTabPresenter(
         val coroutineScope = rememberCoroutineScope()
         var tags by remember { mutableStateOf<List<WaifuTag>>(emptyList()) }
         var selectedTags by remember { mutableStateOf<List<String>>(emptyList()) }
+        // NSFW is always opt-in: it must never be enabled by default or by remote config.
         var isNsfw by remember { mutableStateOf(false) }
         var images by remember { mutableStateOf<List<WaifuImage>>(emptyList()) }
-        var pageNumber by remember { mutableStateOf(1) }
+        var pageNumber by remember { mutableIntStateOf(1) }
         var hasNextPage by remember { mutableStateOf(false) }
         var isLoading by remember { mutableStateOf(true) }
         var isLoadingMore by remember { mutableStateOf(false) }
-        var error by remember { mutableStateOf<String?>(null) }
+        var error by remember { mutableStateOf<WaifuError?>(null) }
         var lightboxIndex by remember { mutableStateOf<Int?>(null) }
         var loadJob by remember { mutableStateOf<Job?>(null) }
 
@@ -62,48 +65,66 @@ class WaifuTabPresenter(
             }
             error = null
             loadJob = coroutineScope.launch {
-                runCatching {
-                    waifuApi.getImages(tags = selectedTags, isNsfw = isNsfw, pageNumber = page, random = random)
+                try {
+                    val response = waifuApi.getImages(
+                        tags = selectedTags,
+                        isNsfw = isNsfw,
+                        pageNumber = page,
+                        random = random,
+                    )
+                    // Mezcla de filtros: el feed acumula; el limite de sesion corta el scroll.
+                    images = if (append) images + response.items else response.items
+                    if (!append) lightboxIndex = null
+                    pageNumber = response.pageNumber
+                    hasNextPage = response.hasNextPage
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (exception: Exception) {
+                    error = if (exception is WaifuApiException && exception.code == 403) {
+                        WaifuError.NsfwForbidden
+                    } else {
+                        WaifuError.Generic
+                    }
+                } finally {
+                    isLoading = false
+                    isLoadingMore = false
                 }
-                    .onSuccess { response ->
-                        // Mezcla de filtros: el feed acumula; el limite de sesion corta el scroll.
-                        images = if (append) images + response.items else response.items
-                        if (!append) lightboxIndex = null
-                        pageNumber = response.pageNumber
-                        hasNextPage = response.hasNextPage
-                    }
-                    .onFailure {
-                        error = if (it is WaifuApiException && it.code == 403) {
-                            "NSFW no disponible: revisa los permisos de la API key"
-                        } else {
-                            "Error al cargar las imágenes"
-                        }
-                    }
-                isLoading = false
-                isLoadingMore = false
             }
         }
 
         fun saveToDownloads(image: WaifuImage) {
             coroutineScope.launch {
-                withContext(dispatchers.io) {
-                    runCatching {
+                val saved = withContext(dispatchers.io) {
+                    try {
                         val request = Request.Builder().url(image.url).get().build()
                         okHttpClient.newCall(request).execute().use { response ->
-                            if (!response.isSuccessful) return@use
-                            val bytes = response.body?.bytes() ?: return@use
-                            writeToMediaStore(image, bytes)
+                            if (!response.isSuccessful) return@withContext false
+                            val contentType = response.body.contentType()?.toString()
+                            val bytes = response.body.bytes()
+                            writeToMediaStore(image = image, bytes = bytes, contentType = contentType)
                         }
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (exception: Exception) {
+                        false
                     }
                 }
-                context.toast("Guardado en Descargas")
+                if (saved) {
+                    context.toast(R.string.screen_waifu_download_success)
+                } else {
+                    context.toast(R.string.screen_waifu_download_failure)
+                }
             }
         }
 
         LaunchedEffect(Unit) {
-            runCatching { waifuApi.getTags() }
-                .onSuccess { tags = it }
-                .onFailure { }
+            try {
+                tags = waifuApi.getTags()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (exception: Exception) {
+                // Tags are optional: the gallery can still load without the filter chips.
+            }
             // Sesion inicial: aleatoria, pagina 1.
             loadPage(1, append = false, random = true)
         }
@@ -151,25 +172,31 @@ class WaifuTabPresenter(
         )
     }
 
-    private fun writeToMediaStore(image: WaifuImage, bytes: ByteArray) {
-        val displayName = "waifu-${image.id}${image.extension}"
+    private fun writeToMediaStore(image: WaifuImage, bytes: ByteArray, contentType: String?): Boolean {
+        val mediaType = resolveWaifuMediaType(contentType = contentType, apiExtension = image.extension)
+        val displayName = image.displayNameFor(contentType)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
-                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                put(MediaStore.MediaColumns.MIME_TYPE, mediaType.mimeType)
                 put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
             }
             val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-            uri?.let { uri ->
+                ?: return false
+            return runCatching {
                 context.contentResolver.openOutputStream(uri)?.use { output ->
                     output.write(bytes)
-                }
-            }
+                } ?: return false
+                true
+            }.getOrDefault(false)
         } else {
             val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            File(dir, displayName).outputStream().use { output ->
-                output.write(bytes)
-            }
+            return runCatching {
+                File(dir, displayName).outputStream().use { output ->
+                    output.write(bytes)
+                }
+                true
+            }.getOrDefault(false)
         }
     }
 }
