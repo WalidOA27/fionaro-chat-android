@@ -4,6 +4,7 @@ import android.content.Context
 import im.vector.app.features.analytics.itf.VectorAnalyticsEvent
 import im.vector.app.features.analytics.itf.VectorAnalyticsScreen
 import org.json.JSONObject
+import timber.log.Timber
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
@@ -25,6 +26,13 @@ object UmamiTracker {
     @Volatile
     private var deviceId: String = ""
 
+    @Volatile
+    private var enabled: Boolean = false
+
+    fun setEnabled(isEnabled: Boolean) {
+        enabled = isEnabled
+    }
+
     fun init(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         deviceId = prefs.getString(KEY_DEVICE_ID, null) ?: run {
@@ -35,6 +43,7 @@ object UmamiTracker {
     }
 
     fun capture(event: VectorAnalyticsEvent) {
+        if (!enabled) return
         val dataMap = mutableMapOf<String, Any>()
         event.getProperties()?.forEach { (key, value) ->
             if (value != null) dataMap[key] = value
@@ -43,10 +52,12 @@ object UmamiTracker {
     }
 
     fun screen(screen: VectorAnalyticsScreen) {
+        if (!enabled) return
         sendUmami(url = "/screen/${screen.getName()}", title = screen.getName(), name = "")
     }
 
     fun trackError(throwable: Throwable) {
+        if (!enabled) return
         sendUmami(
             name = "error",
             data = mapOf(
@@ -57,7 +68,9 @@ object UmamiTracker {
     }
 
     private fun sendUmami(url: String = "", title: String = "", name: String = "event", data: Map<String, Any> = emptyMap()) {
+        if (!enabled) return
         executor.submit {
+            if (!enabled) return@submit
             try {
                 val payload = JSONObject().apply {
                     put("hostname", HOSTNAME)
@@ -85,7 +98,7 @@ object UmamiTracker {
                 connection.responseCode
                 connection.disconnect()
             } catch (e: Exception) {
-                android.util.Log.e("Umami", "Failed to send", e)
+                Timber.tag("Umami").e(e, "Failed to send")
             }
         }
     }

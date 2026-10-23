@@ -16,7 +16,6 @@ import androidx.work.Configuration
 import dev.zacsweers.metro.createGraphFactory
 import io.element.android.libraries.di.DependencyInjectionGraphOwner
 import io.element.android.libraries.workmanager.api.di.MetroWorkerFactory
-import io.element.android.services.analyticsproviders.umami.UmamiTracker
 import io.element.android.x.di.AppGraph
 import io.element.android.x.info.logApplicationInfo
 import io.element.android.x.initializer.CacheCleanerInitializer
@@ -40,8 +39,6 @@ class ElementXApplication : Application(), DependencyInjectionGraphOwner, Config
         }
 
         logApplicationInfo(this)
-
-        UmamiTracker.init(this)
 
         // Disable the strict offset check for anchored draggable components, as it can cause issues with bottom sheets.
         // Remove once https://issuetracker.google.com/issues/477038695 is fixed.

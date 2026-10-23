@@ -27,7 +27,7 @@ All Matrix and related endpoints point to the Fionaro infrastructure:
 ### Flavor & Distribution
 - **fdroid** flavor only (no Google Play / Firebase dependencies)
 - UnifiedPush via self-hosted ntfy (no FCM / Google Play Services)
-- No analytics, telemetry, or crash reporting to external services
+- Analytics: the app sends anonymous usage statistics (event and screen names plus a random device identifier, never message content) only to our own self-hosted Umami server. It is the only analytics we use and it helps us improve the app. You can turn it off in Settings → Analytics.
 
 ### Build & Signing
 - Production keystore: `~/fionaro-chat-release.jks` (passwords in `gradle.properties` or environment)
@@ -68,10 +68,9 @@ All Matrix and related endpoints point to the Fionaro infrastructure:
 - Served from `register.html` on the homeserver
 
 ### Security & Privacy
-- No telemetry, analytics, or crash reporting to third parties
-- No Firebase Crashlytics, no Google Analytics
-- No Sentry, no PostHog
-- All traffic routed through Fionaro infrastructure only
+- Anonymous usage statistics go only to our self-hosted Umami server (event/screen names and a random device identifier, never message content); you can turn them off in Settings → Analytics
+- No PostHog, Sentry, Firebase Crashlytics, Google Analytics or other third-party analytics/crash SDKs are included in the build
+- All Matrix, call, push and analytics traffic is routed through Fionaro-controlled infrastructure
 
 ### Removed / Disabled
 - Firebase / Google Play Services dependencies

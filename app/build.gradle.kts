@@ -46,6 +46,12 @@ android {
         versionCode = Versions.VERSION_CODE
         versionName = Versions.VERSION_NAME
 
+        // Rust SDK crash reporting DSN. Empty for self-hosted builds unless explicitly configured.
+        buildConfigFieldStr(
+            name = "SENTRY_SDK_DSN",
+            value = BuildTimeConfig.SERVICES_SENTRY_DSN_RUST ?: System.getenv("ELEMENT_SDK_SENTRY_DSN") ?: "",
+        )
+
         // Keep abiFilter for the universalApk
         ndk {
             abiFilters += listOf("armeabi-v7a", "x86", "arm64-v8a", "x86_64")
@@ -271,7 +277,6 @@ dependencies {
     implementation(projects.appconfig)
     implementation(projects.libraries.uiStrings)
     implementation(projects.services.analytics.compose)
-    implementation(projects.services.analyticsproviders.umami)
 
     if (ModulesConfig.pushProvidersConfig.includeFirebase) {
         "gplayImplementation"(projects.libraries.pushproviders.firebase)
