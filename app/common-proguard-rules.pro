@@ -72,8 +72,39 @@
 -keep,allowoptimization,allowshrinking class uniffi.** { *;}
 -keep,allowoptimization,allowshrinking class io.element.android.x.di.** { *; }
 
+# Compose is R8-safe: the Compose compiler emits static calls and the Compose
+# runtime ships its own consumer rules, so no project-wide Compose keep rule is
+# needed here (a broad -keep for androidx.compose.** would only bloat the APK).
+
 # Keep Metro classes
 -keep,allowoptimization,allowshrinking class dev.zacsweers.metro.** { *; }
 
 # Rustls Platform Verifier
 -keep, includedescriptorclasses class org.rustls.platformverifier.** { *; }
+
+# WebView JavaScript bridges
+# JavaScript inside the Element Call widget (and the account creation web view)
+# invokes these methods by name through objects registered with
+# WebView.addJavascriptInterface(). JavaScript cannot see renamed members, so
+# the classes and their JavascriptInterface methods must survive R8. FOSS
+# builds additionally apply -dontobfuscate, but enterprise builds do not, so
+# keep the rules here where both build types pick them up.
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Call widget: androidNativeBridge.setAudioDevice()/onTrackReady()
+-keep,allowoptimization class io.element.android.features.call.impl.utils.AndroidWebViewAudioBridge { *; }
+
+# Call widget: backHandler.onBackPressed()
+-keep,allowoptimization class io.element.android.features.call.impl.ui.JavascriptBackHandlerBridge { *; }
+
+# Call widget: postMessage() message channel (anonymous JavascriptInterface)
+-keepclassmembers class io.element.android.features.call.impl.utils.WebViewWidgetMessageInterceptor$* {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Login (account creation): postMessage() message channel fallback
+-keepclassmembers class io.element.android.features.login.impl.screens.createaccount.WebViewMessageInterceptor$* {
+    @android.webkit.JavascriptInterface <methods>;
+}
