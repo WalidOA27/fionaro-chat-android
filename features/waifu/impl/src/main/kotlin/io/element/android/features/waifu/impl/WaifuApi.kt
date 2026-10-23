@@ -6,8 +6,8 @@
 
 package io.element.android.features.waifu.impl
 
-import io.element.android.appconfig.WaifuConfig
 import dev.zacsweers.metro.Inject
+import io.element.android.appconfig.WaifuConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -76,7 +76,7 @@ class WaifuApi @Inject constructor(
         val request = Request.Builder().url(url).get().build()
         okHttpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw WaifuApiException(response.code)
-            val body = response.body?.string() ?: throw WaifuApiException(-1)
+            val body = response.body.string()
             json.decodeFromString<WaifuTagsResponse>(body).items
                 .sortedByDescending { it.imageCount }
         }
@@ -101,7 +101,7 @@ class WaifuApi @Inject constructor(
         val request = Request.Builder().url(urlBuilder.build()).get().build()
         okHttpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw WaifuApiException(response.code)
-            val body = response.body?.string() ?: throw WaifuApiException(-1)
+            val body = response.body.string()
             json.decodeFromString<WaifuImagesResponse>(body)
         }
     }

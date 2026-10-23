@@ -19,6 +19,11 @@ sealed interface WaifuEvent {
     data class Download(val image: WaifuImage) : WaifuEvent
 }
 
+sealed interface WaifuError {
+    data object NsfwForbidden : WaifuError
+    data object Generic : WaifuError
+}
+
 data class WaifuState(
     val tags: List<WaifuTag> = emptyList(),
     val selectedTags: List<String> = emptyList(),
@@ -27,7 +32,7 @@ data class WaifuState(
     val isLoading: Boolean = true,
     val isLoadingMore: Boolean = false,
     val hasNextPage: Boolean = false,
-    val error: String? = null,
+    val error: WaifuError? = null,
     val lightboxIndex: Int? = null,
     val eventSink: (WaifuEvent) -> Unit = {},
 ) {
