@@ -11,7 +11,7 @@ signing material at build time.
 | :--- | :--- |
 | Product | Fionaro Chat (`pw.fionaro.chat`) |
 | Upstream | [element-hq/element-x-android](https://github.com/element-hq/element-x-android), base tag `v26.06.4` |
-| Fork version | `v1.1.0` (`versionName` `1.1.0`) |
+| Fork version | `v1.1.1` (`versionName` `1.1.1`) |
 | License | Dual: AGPL-3.0-only or Element Commercial. See `LICENSE` and `LICENSE-COMMERCIAL`. |
 | Distribution | Self-hosted builds; `fdroid` is the default flavor |
 

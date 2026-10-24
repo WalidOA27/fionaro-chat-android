@@ -41,7 +41,7 @@ private const val versionYear = 26
  */
 private const val versionMonth = 9
 private const val versionMinor = 1
-private const val versionPatch = 0
+private const val versionPatch = 1
 private const val versionReleaseNumber = versionPatch
 
 /**
