@@ -65,6 +65,8 @@ dependencies {
     implementation(projects.features.waifu.impl)
 
     testCommonDependencies(libs, true)
+    testImplementation(platform(libs.network.okhttp.bom))
+    testImplementation(libs.network.okhttp)
     testImplementation(projects.features.announcement.test)
     testImplementation(projects.features.invite.test)
     testImplementation(projects.features.logout.test)

@@ -11,6 +11,8 @@ package io.element.android.features.home.impl
 import com.bumble.appyx.core.modality.BuildContext
 import com.google.common.truth.Truth.assertThat
 import io.element.android.features.home.api.HomeEntryPoint
+import io.element.android.features.waifu.impl.WaifuApi
+import io.element.android.features.waifu.impl.WaifuTabPresenter
 import io.element.android.libraries.matrix.api.core.RoomId
 import io.element.android.libraries.matrix.api.room.JoinedRoom
 import io.element.android.libraries.matrix.test.FakeMatrixClient
@@ -18,8 +20,11 @@ import io.element.android.services.analytics.test.FakeAnalyticsService
 import io.element.android.tests.testutils.lambda.lambdaError
 import io.element.android.tests.testutils.node.TestParentNode
 import io.element.android.tests.testutils.robolectric.RobolectricTest
+import io.element.android.tests.testutils.testCoroutineDispatchers
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import org.junit.Test
+import org.robolectric.RuntimeEnvironment
 
 class DefaultHomeEntryPointTest : RobolectricTest() {
     @Test
@@ -31,6 +36,11 @@ class DefaultHomeEntryPointTest : RobolectricTest() {
                 plugins = plugins,
                 matrixClient = FakeMatrixClient(),
                 presenter = createHomePresenter(),
+                waifuTabPresenter = WaifuTabPresenter(
+                    waifuApi = WaifuApi(okHttpClient = OkHttpClient(), baseUrl = "http://localhost"),
+                    context = RuntimeEnvironment.getApplication(),
+                    dispatchers = testCoroutineDispatchers(),
+                ),
                 inviteFriendsUseCase = { lambdaError() },
                 analyticsService = FakeAnalyticsService(),
                 acceptDeclineInviteView = { _, _, _, _ -> lambdaError() },
