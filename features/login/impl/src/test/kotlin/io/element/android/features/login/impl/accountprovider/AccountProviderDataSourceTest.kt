@@ -30,7 +30,7 @@ class AccountProviderDataSourceTest {
             assertThat(initialState).isEqualTo(
                 AccountProvider(
                     url = AuthenticationConfig.MATRIX_ORG_URL,
-                    title = "matrix.org",
+                    title = "matrix.fionaro.pw",
                     subtitle = null,
                     isPublic = true,
                     isMatrixOrg = true,
@@ -51,7 +51,7 @@ class AccountProviderDataSourceTest {
             assertThat(initialState).isEqualTo(
                 AccountProvider(
                     url = AuthenticationConfig.MATRIX_ORG_URL,
-                    title = "matrix.org",
+                    title = "matrix.fionaro.pw",
                     subtitle = null,
                     isPublic = true,
                     isMatrixOrg = true,
@@ -72,7 +72,7 @@ class AccountProviderDataSourceTest {
             assertThat(initialState).isEqualTo(
                 AccountProvider(
                     url = AuthenticationConfig.MATRIX_ORG_URL,
-                    title = "matrix.org",
+                    title = "matrix.fionaro.pw",
                     subtitle = null,
                     isPublic = true,
                     isMatrixOrg = true,
