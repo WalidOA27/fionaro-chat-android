@@ -21,8 +21,17 @@ jobs:
       group: ${{ format('main-validation-{0}', github.ref) }}
       cancel-in-progress: true
     steps:
-      - name: Checkout with LFS
-        uses: nschloe/action-cached-lfs-checkout@385a8ecc719e50b8c71af6ab01a624b486b7c3bc # v1.2.5
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      # The fork does not host Git LFS objects. The unit tests only need the media
+      # upload test assets, which are fetched from the upstream LFS store.
+      - name: Fetch LFS test assets from upstream
+        run: |
+          git lfs install --local
+          git -c lfs.url=https://github.com/element-hq/element-x-android.git/info/lfs \
+            lfs pull --include="libraries/mediaupload/impl/src/test/assets/*"
       - name: Use JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
