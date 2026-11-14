@@ -41,5 +41,7 @@ jobs:
         uses: gradle/actions/setup-gradle@5e2ebd065dc2488b7a6ad670704656cbbe1e8f60 # v6.1.1
       - name: Build F-Droid debug APK
         run: ./gradlew assembleFdroidDebug $CI_GRADLE_ARG_PROPERTIES
+      # Screenshot verification is off: the reference images live in upstream LFS and
+      # show Element's branding, not Fionaro's, so they cannot match this fork.
       - name: Run unit tests
-        run: ./gradlew testDebugUnitTest $CI_GRADLE_ARG_PROPERTIES
+        run: ./gradlew testDebugUnitTest -Proborazzi.test.verify=false --continue $CI_GRADLE_ARG_PROPERTIES
