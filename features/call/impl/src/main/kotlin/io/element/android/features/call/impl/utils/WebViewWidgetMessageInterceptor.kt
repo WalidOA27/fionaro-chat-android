@@ -230,8 +230,9 @@ class WebViewWidgetMessageInterceptor(
                         WebResourceResponse("application/json", "UTF-8", 403, "Forbidden", corsHeaders, ByteArrayInputStream(errorJson.toByteArray()))
                     }
                 }
-                if (!mainDocumentIntercepted && request.isForMainFrame && request.method == "GET" &&
-                    urlStr.matches(Regex("^https?://call\\.fionaro\\.pw(/|\$|\\?).*"))) {
+                val isCallMainDocument = request.isForMainFrame && request.method == "GET" &&
+                    urlStr.matches(Regex("^https?://call\\.fionaro\\.pw(/|\$|\\?).*"))
+                if (!mainDocumentIntercepted && isCallMainDocument) {
                     mainDocumentIntercepted = true
                     Timber.d("Main document intercepted, injecting permission primer")
                     try {

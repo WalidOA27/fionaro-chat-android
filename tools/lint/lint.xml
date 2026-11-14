@@ -21,7 +21,10 @@
     <issue id="IconXmlAndPng" severity="error" />
     <issue id="IconDipSize" severity="error" />
     <issue id="IconDuplicatesConfig" severity="error" />
-    <issue id="IconDuplicates" severity="error" />
+    <issue id="IconDuplicates" severity="error">
+        <!-- The Fionaro logo is circular, so the round launcher icon is the same image as the square one. -->
+        <ignore path="**/appicon/element/src/main/res/mipmap-*/ic_launcher_round.png" />
+    </issue>
     <issue id="IconExpectedSize" severity="error">
         <ignore path="**/ic_launcher_monochrome.webp" />
     </issue>
