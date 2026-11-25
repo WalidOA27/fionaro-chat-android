@@ -190,6 +190,33 @@ class DefaultSoundStickerSenderTest {
     }
 
     @Test
+    fun `send - encrypts when the room encryption state is unknown`() = runTest {
+        joinedRoom.givenRoomInfo(aRoomInfo(isEncrypted = null))
+        matrixClient.uploadMediaResultLambda = { _, _ -> Result.success("mxc://matrix.org/media") }
+        val sut = createSender()
+
+        val result = sut.send(
+            room = joinedRoom,
+            imageFile = temporaryFolder.writeFile("sticker.png", imageBytes),
+            imageMimeType = MimeTypes.Png,
+            width = 512,
+            height = 512,
+            audioFile = temporaryFolder.writeFile("sound.ogg", audioBytes),
+            audioMimeType = MimeTypes.Ogg,
+            durationMs = 3200,
+        )
+
+        assertThat(result.isSuccess).isTrue()
+        assertThat(matrixClient.uploadMediaCalls.map { it.first })
+            .containsExactly(MimeTypes.OctetStream, MimeTypes.OctetStream)
+        val content = Json.parseToJsonElement(sendRawContent()).jsonObject
+        assertThat(content).doesNotContainKey("url")
+        assertThat(content.getValue("file").jsonObject.getValue("v").jsonPrimitive.content).isEqualTo("v2")
+        assertThat(content.getValue("io.fionaro.sticker_audio").jsonObject)
+            .containsKey("file")
+    }
+
+    @Test
     fun `send - propagates an upload failure`() = runTest {
         joinedRoom.givenRoomInfo(aRoomInfo(isEncrypted = false))
         matrixClient.givenUploadMediaResult(Result.failure(IllegalStateException("Upload failed")))

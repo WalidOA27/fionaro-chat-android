@@ -52,17 +52,19 @@ class DefaultSoundStickerSender(
 
             val imageBytes = imageFile.readBytes()
             val audioBytes = audioFile.readBytes()
-            val isEncrypted = room.info().isEncrypted == true
+            // When the encryption state is unknown, prefer encrypting: an EncryptedFile object is
+            // valid in any room, while uploading plaintext would silently break the E2EE promise.
+            val shouldEncrypt = room.info().isEncrypted != false
 
             val uploadedImage = upload(
                 bytes = imageBytes,
                 mimeType = imageMimeType,
-                encrypt = isEncrypted,
+                encrypt = shouldEncrypt,
             )
             val uploadedAudio = upload(
                 bytes = audioBytes,
                 mimeType = audioMimeType,
-                encrypt = isEncrypted,
+                encrypt = shouldEncrypt,
             )
 
             val contentJson = buildStickerContentJson(
