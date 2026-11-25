@@ -15,6 +15,7 @@ import io.element.android.features.messages.impl.timeline.diff.TimelineItemsCach
 import io.element.android.features.messages.impl.timeline.factories.event.TimelineItemEventFactory
 import io.element.android.features.messages.impl.timeline.factories.virtual.TimelineItemVirtualFactory
 import io.element.android.features.messages.impl.timeline.groups.TimelineItemGrouper
+import io.element.android.features.messages.impl.timeline.groups.TimelineItemMediaAlbumGrouper
 import io.element.android.features.messages.impl.timeline.model.TimelineItem
 import io.element.android.libraries.androidutils.diff.DiffCacheUpdater
 import io.element.android.libraries.androidutils.diff.MutableListDiffCache
@@ -37,6 +38,7 @@ class TimelineItemsFactory(
     private val dispatchers: CoroutineDispatchers,
     private val virtualItemFactory: TimelineItemVirtualFactory,
     private val timelineItemGrouper: TimelineItemGrouper,
+    private val timelineItemMediaAlbumGrouper: TimelineItemMediaAlbumGrouper,
 ) {
     @AssistedFactory
     interface Creator {
@@ -98,7 +100,8 @@ class TimelineItemsFactory(
                 newTimelineItemStates.add(updatedItem)
             }
         }
-        val result = timelineItemGrouper.group(newTimelineItemStates).toImmutableList()
+        val groupedItems = timelineItemGrouper.group(newTimelineItemStates)
+        val result = timelineItemMediaAlbumGrouper.group(groupedItems).toImmutableList()
         this._timelineItems.emit(result)
     }
 
