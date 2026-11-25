@@ -45,3 +45,33 @@ internal fun ATimelineItemEventRow(
     onSwipeToReply = {},
     eventSink = {},
 )
+
+// For previews
+@Composable
+internal fun ATimelineItemMediaAlbumRow(
+    album: TimelineItem.MediaAlbum,
+    timelineMode: Timeline.Mode = Timeline.Mode.Live,
+    timelineRoomInfo: TimelineRoomInfo = aTimelineRoomInfo(),
+    isLastOutgoingMessage: Boolean = false,
+    timelineProtectionState: TimelineProtectionState = aTimelineProtectionState(),
+    displayThreadSummaries: Boolean = false,
+) = TimelineItemMediaAlbumRow(
+    timelineItem = album,
+    timelineMode = timelineMode,
+    timelineRoomInfo = timelineRoomInfo,
+    timelineProtectionState = timelineProtectionState,
+    isLastOutgoingMessage = isLastOutgoingMessage,
+    displayThreadSummaries = displayThreadSummaries,
+    onContentClick = {},
+    onLongClick = {},
+    inReplyToClick = {},
+    onUserDataClick = {},
+    onLinkClick = {},
+    onLinkLongClick = {},
+    onReactionClick = { _, _ -> },
+    onReactionLongClick = { _, _ -> },
+    onMoreReactionsClick = {},
+    onReadReceiptClick = {},
+    onSwipeToReply = {},
+    eventSink = {},
+)

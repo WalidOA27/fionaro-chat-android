@@ -186,6 +186,28 @@ internal fun TimelineItemRow(
                     }
                 }
             }
+            is TimelineItem.MediaAlbum -> {
+                TimelineItemMediaAlbumRow(
+                    timelineItem = timelineItem,
+                    timelineMode = timelineMode,
+                    timelineRoomInfo = timelineRoomInfo,
+                    timelineProtectionState = timelineProtectionState,
+                    isLastOutgoingMessage = isLastOutgoingMessage,
+                    displayThreadSummaries = displayThreadSummaries,
+                    onContentClick = onContentClick,
+                    onLongClick = onLongClick,
+                    inReplyToClick = inReplyToClick,
+                    onUserDataClick = onUserDataClick,
+                    onLinkClick = onLinkClick,
+                    onLinkLongClick = onLinkLongClick,
+                    onReactionClick = onReactionClick,
+                    onReactionLongClick = onReactionLongClick,
+                    onMoreReactionsClick = onMoreReactionsClick,
+                    onReadReceiptClick = onReadReceiptClick,
+                    onSwipeToReply = onSwipeToReply,
+                    eventSink = eventSink,
+                )
+            }
             is TimelineItem.GroupedEvents -> {
                 TimelineItemGroupedEventsRow(
                     timelineItem = timelineItem,

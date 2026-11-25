@@ -21,8 +21,10 @@ import io.element.android.features.messages.impl.timeline.model.TimelineItemRead
 import io.element.android.features.messages.impl.timeline.model.TimelineItemThreadInfo
 import io.element.android.features.messages.impl.timeline.model.anAggregatedReaction
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemEventContent
+import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemImageContent
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemStateEventContent
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemTextContent
+import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemVideoContent
 import io.element.android.features.messages.impl.timeline.model.virtual.aTimelineItemDaySeparatorModel
 import io.element.android.features.messages.impl.typing.TypingNotificationState
 import io.element.android.features.messages.impl.typing.aTypingNotificationState
@@ -141,6 +143,7 @@ internal fun aTimelineItemEvent(
     isMine: Boolean = false,
     isEditable: Boolean = false,
     canBeRepliedTo: Boolean = false,
+    senderId: UserId = UserId("@senderId:domain"),
     senderDisplayName: String = USER_NAME_SENDER,
     displayNameAmbiguous: Boolean = false,
     content: TimelineItemEventContent = aTimelineItemTextContent(),
@@ -152,14 +155,16 @@ internal fun aTimelineItemEvent(
     timelineItemReactions: TimelineItemReactions = aTimelineItemReactions(),
     readReceiptState: TimelineItemReadReceipts = aTimelineItemReadReceipts(),
     messageShield: MessageShield? = null,
+    sentTimeMillis: Long = 0L,
 ): TimelineItem.Event {
     return TimelineItem.Event(
         id = UniqueId(UUID.randomUUID().toString()),
         eventId = eventId,
         transactionId = transactionId,
-        senderId = UserId("@senderId:domain"),
-        senderAvatar = AvatarData("@senderId:domain", USER_NAME_SENDER, size = AvatarSize.TimelineSender),
+        senderId = senderId,
+        senderAvatar = AvatarData(senderId.value, USER_NAME_SENDER, size = AvatarSize.TimelineSender),
         content = content,
+        sentTimeMillis = sentTimeMillis,
         reactionsState = timelineItemReactions,
         readReceiptState = readReceiptState,
         sentTime = "12:34",
@@ -247,6 +252,34 @@ internal fun aGroupedEvents(
         id = id,
         events = events.toImmutableList(),
         aggregatedReadReceipts = events.flatMap { it.readReceiptState.receipts }.toImmutableList(),
+    )
+}
+
+internal fun aMediaAlbum(
+    id: UniqueId = UniqueId("media-album"),
+    count: Int = 4,
+    isMine: Boolean = false,
+    withCaption: Boolean = false,
+    withVideo: Boolean = false,
+): TimelineItem.MediaAlbum {
+    val events = (0 until count).map { index ->
+        val content = if (withVideo && index == 0) {
+            aTimelineItemVideoContent()
+        } else {
+            aTimelineItemImageContent(
+                caption = if (withCaption && index == count - 1) "An album caption" else null,
+            )
+        }
+        aTimelineItemEvent(
+            isMine = isMine,
+            content = content,
+            groupPosition = TimelineItemGroupPosition.None,
+            sentTimeMillis = index * 1000L,
+        )
+    }
+    return TimelineItem.MediaAlbum(
+        id = id,
+        events = events.toImmutableList(),
     )
 }
 

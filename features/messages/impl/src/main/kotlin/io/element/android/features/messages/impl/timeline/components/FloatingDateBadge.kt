@@ -61,6 +61,7 @@ internal fun BoxScope.FloatingDateBadgeOverlay(
                     is TimelineItem.Event -> return@derivedStateOf item
                     is TimelineItem.Virtual -> if (item.model is TimelineItemDaySeparatorModel) return@derivedStateOf item
                     is TimelineItem.GroupedEvents -> return@derivedStateOf item.events.firstOrNull()
+                    is TimelineItem.MediaAlbum -> return@derivedStateOf item.events.lastOrNull()
                     null -> Unit
                 }
                 index--
