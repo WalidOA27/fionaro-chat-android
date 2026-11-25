@@ -34,6 +34,17 @@ sealed interface PickerType<Input, Output> {
         }
     }
 
+    /**
+     * Allows the user to pick several images and/or videos at once.
+     * The system limits the maximum number of items that can be picked, see [maxItems].
+     */
+    data class MultipleImageAndVideo(val maxItems: Int = 30) : PickerType<PickVisualMediaRequest, List<Uri>> {
+        override fun getContract() = ActivityResultContracts.PickMultipleVisualMedia(maxItems)
+        override fun getDefaultRequest(): PickVisualMediaRequest {
+            return PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+        }
+    }
+
     object Camera {
         data class Photo(val destUri: Uri) : PickerType<Uri, Boolean> {
             override fun getContract() = ActivityResultContracts.TakePicture()
