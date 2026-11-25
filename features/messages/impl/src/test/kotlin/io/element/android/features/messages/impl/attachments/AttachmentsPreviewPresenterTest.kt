@@ -324,6 +324,94 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
     }
 
     @Test
+    fun `present - send all attachments with caption only on the last one`() = runTest {
+        val captions = mutableListOf<String?>()
+        val sendFileResult =
+            lambdaRecorder<File, FileInfo, String?, String?, EventId?, Result<FakeMediaUploadHandler>> { _, _, caption, _, _ ->
+                captions.add(caption)
+                Result.success(FakeMediaUploadHandler())
+            }
+        val room = FakeJoinedRoom(
+            liveTimeline = FakeTimeline().apply {
+                sendFileLambda = sendFileResult
+            },
+        )
+        val onDoneListener = lambdaRecorder<Unit> { }
+        val presenter = createAttachmentsPreviewPresenter(
+            room = room,
+            localMedias = listOf(
+                aLocalMedia(uri = mockMediaUrl),
+                aLocalMedia(uri = Uri.parse("content://second-media")),
+                aLocalMedia(uri = Uri.parse("content://third-media")),
+            ),
+            onDoneListener = { onDoneListener() },
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.textEditorState.setMarkdown(A_CAPTION)
+            initialState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+
+            val states = consumeItemsUntilPredicate { it.sendActionState == SendActionState.Done }
+            assertThat(
+                states.any {
+                    it.sendActionState == SendActionState.Sending.Uploading(mediaUploadInfo, sentCount = 2, totalCount = 3)
+                }
+            ).isTrue()
+            assertThat(captions).containsExactly(null, null, A_CAPTION).inOrder()
+            sendFileResult.assertions().isCalledExactly(3)
+            onDoneListener.assertions().isCalledOnce()
+        }
+    }
+
+    @Test
+    fun `present - sending stops on failure and retry only sends the remaining attachments`() = runTest {
+        val captions = mutableListOf<String?>()
+        var callCount = 0
+        val room = FakeJoinedRoom(
+            liveTimeline = FakeTimeline().apply {
+                sendFileLambda = { _, _, caption, _, _ ->
+                    callCount++
+                    captions.add(caption)
+                    if (callCount == 2) {
+                        Result.failure(RuntimeException("Failed to send"))
+                    } else {
+                        Result.success(FakeMediaUploadHandler())
+                    }
+                }
+            },
+        )
+        val onDoneListener = lambdaRecorder<Unit> { }
+        val presenter = createAttachmentsPreviewPresenter(
+            room = room,
+            localMedias = listOf(
+                aLocalMedia(uri = mockMediaUrl),
+                aLocalMedia(uri = Uri.parse("content://second-media")),
+                aLocalMedia(uri = Uri.parse("content://third-media")),
+            ),
+            onDoneListener = { onDoneListener() },
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.textEditorState.setMarkdown(A_CAPTION)
+            initialState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+
+            val failedState = consumeItemsUntilPredicate {
+                it.sendActionState is SendActionState.Failure
+            }.last()
+            // The first attachment has been sent, then the second one failed.
+            assertThat(failedState.attachments).hasSize(3)
+            onDoneListener.assertions().isCalledExactly(0)
+
+            // Retry: only the attachments which have not been sent yet are sent again, caption is on the last one.
+            failedState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+            consumeItemsUntilPredicate { it.sendActionState == SendActionState.Done }
+            // Caption is only attached to the last attachment of the selection.
+            assertThat(captions.filterNotNull()).containsExactly(A_CAPTION)
+            onDoneListener.assertions().isCalledOnce()
+        }
+    }
+
+    @Test
     fun `present - send image with caption success scenario`() = runTest {
         val sendImageResult =
             lambdaRecorder { _: File, _: File?, _: ImageInfo, _: String?, _: String?, _: EventId? ->
