@@ -94,6 +94,7 @@ class FakeJoinedRoom(
     private val sendLiveLocationResult: (String) -> Result<Unit> = { lambdaError() },
     private val setOwnMemberDisplayNameResult: (String) -> Result<Unit> = { lambdaError() },
     private val sendStateEventResult: (String, String, String) -> Result<EventId> = { _, _, _ -> lambdaError() },
+    private val sendRawMessageLikeEventResult: (String, String) -> Result<Unit> = { _, _ -> lambdaError() },
 ) : JoinedRoom, BaseRoom by baseRoom {
     private val sendQueueUpdates = MutableSharedFlow<SendQueueUpdate>(extraBufferCapacity = 10)
 
@@ -263,6 +264,10 @@ class FakeJoinedRoom(
 
     override suspend fun sendStateEvent(eventType: String, stateKey: String, content: String): Result<EventId> = simulateLongTask {
         sendStateEventResult(eventType, stateKey, content)
+    }
+
+    override suspend fun sendRawMessageLikeEvent(eventType: String, contentJson: String): Result<Unit> = simulateLongTask {
+        sendRawMessageLikeEventResult(eventType, contentJson)
     }
 
     private suspend fun simulateSendMediaProgress(progressCallback: ProgressCallback?) {
