@@ -8,7 +8,9 @@
 
 package io.element.android.features.messages.impl.timeline.model.event
 
+import io.element.android.libraries.matrix.api.core.EventId
 import io.element.android.libraries.matrix.api.media.MediaSource
+import io.element.android.libraries.matrix.api.timeline.item.event.StickerAudio
 
 data class TimelineItemStickerContent(
     override val filename: String,
@@ -24,7 +26,15 @@ data class TimelineItemStickerContent(
     val blurhash: String?,
     val width: Int?,
     val height: Int?,
-    val aspectRatio: Float?
+    val aspectRatio: Float?,
+    /**
+     * The id of the sticker event. `null` for local echoes (unused for sound stickers, `sendRaw` has no local echo).
+     */
+    val eventId: EventId? = null,
+    /**
+     * The sound attached to this sticker, if any. `null` for plain stickers.
+     */
+    val audio: StickerAudio? = null,
 ) : TimelineItemEventContentWithAttachment {
     override val type: String = "TimelineItemStickerContent"
 

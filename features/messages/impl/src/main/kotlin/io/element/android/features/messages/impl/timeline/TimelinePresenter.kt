@@ -9,6 +9,7 @@
 package io.element.android.features.messages.impl.timeline
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
@@ -40,6 +41,7 @@ import io.element.android.features.messages.impl.voicemessages.timeline.Redacted
 import io.element.android.features.poll.api.actions.EndPollAction
 import io.element.android.features.poll.api.actions.SendPollResponseAction
 import io.element.android.features.roomcall.api.RoomCallState
+import io.element.android.features.stickers.api.StickerSoundPlayer
 import io.element.android.libraries.architecture.Presenter
 import io.element.android.libraries.core.coroutine.CoroutineDispatchers
 import io.element.android.libraries.di.annotations.SessionCoroutineScope
@@ -96,6 +98,7 @@ class TimelinePresenter(
     private val featureFlagService: FeatureFlagService,
     private val analyticsService: AnalyticsService,
     private val liveLocationShareManager: ActiveLiveLocationShareManager,
+    private val stickerSoundPlayer: StickerSoundPlayer,
 ) : Presenter<TimelineState> {
     private val tag = "TimelinePresenter"
 
@@ -119,6 +122,13 @@ class TimelinePresenter(
 
     @Composable
     override fun present(): TimelineState {
+        DisposableEffect(Unit) {
+            onDispose {
+                // Leaving the room must stop any sticker sound.
+                stickerSoundPlayer.stop()
+            }
+        }
+
         LaunchedEffect(Unit) {
             val parent = analyticsService.getLongRunningTransaction(OpenRoom)
             analyticsService.startLongRunningTransaction(DisplayFirstTimelineItems, parent)

@@ -9,8 +9,11 @@
 package io.element.android.features.messages.impl.timeline.di
 
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemLocationContent
+import io.element.android.features.messages.impl.timeline.model.event.TimelineItemStickerContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemVoiceContent
 import io.element.android.features.messages.impl.timeline.model.event.ensureActiveLiveLocation
+import io.element.android.features.stickers.api.StickerSoundState
+import io.element.android.features.stickers.api.aStickerSoundState
 import io.element.android.libraries.architecture.Presenter
 import io.element.android.libraries.voiceplayer.api.VoiceMessageState
 import io.element.android.libraries.voiceplayer.api.aVoiceMessageState
@@ -29,6 +32,10 @@ fun aFakeTimelineItemPresenterFactories() = TimelineItemPresenterFactories(
         Pair(
             TimelineItemVoiceContent::class,
             TimelineItemPresenterFactory<TimelineItemVoiceContent, VoiceMessageState> { Presenter { aVoiceMessageState() } },
+        ),
+        Pair(
+            TimelineItemStickerContent::class,
+            TimelineItemPresenterFactory<TimelineItemStickerContent, StickerSoundState> { Presenter { aStickerSoundState() } },
         ),
     )
 )

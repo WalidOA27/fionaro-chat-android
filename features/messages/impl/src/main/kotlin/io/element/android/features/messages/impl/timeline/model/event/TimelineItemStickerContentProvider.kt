@@ -10,7 +10,9 @@ package io.element.android.features.messages.impl.timeline.model.event
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.media3.common.MimeTypes
+import io.element.android.libraries.matrix.api.core.EventId
 import io.element.android.libraries.matrix.api.media.MediaSource
+import io.element.android.libraries.matrix.api.timeline.item.event.StickerAudio
 import io.element.android.libraries.matrix.ui.components.A_BLUR_HASH
 
 open class TimelineItemStickerContentProvider : PreviewParameterProvider<TimelineItemStickerContent> {
@@ -20,12 +22,22 @@ open class TimelineItemStickerContentProvider : PreviewParameterProvider<Timelin
             aTimelineItemStickerContent(aspectRatio = 1.0f),
             aTimelineItemStickerContent(aspectRatio = 1.5f),
             aTimelineItemStickerContent(blurhash = null),
+            aTimelineItemStickerContent(audio = aStickerAudio()),
         )
 }
+
+fun aStickerAudio() = StickerAudio(
+    mediaSource = MediaSource("mxc://matrix.org/sticker_audio"),
+    mimetype = MimeTypes.AUDIO_OGG,
+    size = 4_567L,
+    durationMs = 3_200L,
+)
 
 fun aTimelineItemStickerContent(
     aspectRatio: Float = 0.5f,
     blurhash: String? = A_BLUR_HASH,
+    eventId: EventId? = null,
+    audio: StickerAudio? = null,
 ) = TimelineItemStickerContent(
     filename = "a sticker.gif",
     fileSize = 4 * 1024 * 1024L,
@@ -40,5 +52,7 @@ fun aTimelineItemStickerContent(
     height = 128,
     aspectRatio = aspectRatio,
     formattedFileSize = "4MB",
-    fileExtension = "jpg"
+    fileExtension = "jpg",
+    eventId = eventId,
+    audio = audio,
 )

@@ -28,6 +28,7 @@ import io.element.android.features.poll.api.actions.SendPollResponseAction
 import io.element.android.features.poll.test.actions.FakeEndPollAction
 import io.element.android.features.poll.test.actions.FakeSendPollResponseAction
 import io.element.android.features.roomcall.api.aStandByCallState
+import io.element.android.features.stickers.test.FakeStickerSoundPlayer
 import io.element.android.libraries.featureflag.test.FakeFeatureFlagService
 import io.element.android.libraries.matrix.api.core.EventId
 import io.element.android.libraries.matrix.api.core.RoomId
@@ -1014,6 +1015,7 @@ class TimelinePresenterTest {
         timelineItemIndexer: TimelineItemIndexer = TimelineItemIndexer(),
         featureFlagService: FakeFeatureFlagService = FakeFeatureFlagService(),
         liveLocationShareManager: FakeActiveLiveLocationShareManager = FakeActiveLiveLocationShareManager(),
+        stickerSoundPlayer: FakeStickerSoundPlayer = FakeStickerSoundPlayer(),
     ): TimelinePresenter {
         return TimelinePresenter(
             timelineItemsFactoryCreator = aTimelineItemsFactoryCreator(),
@@ -1033,6 +1035,7 @@ class TimelinePresenterTest {
             featureFlagService = featureFlagService,
             analyticsService = FakeAnalyticsService(),
             liveLocationShareManager = liveLocationShareManager,
+            stickerSoundPlayer = stickerSoundPlayer,
         )
     }
 }

@@ -13,6 +13,7 @@ import io.element.android.features.messages.impl.timeline.model.event.TimelineIt
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemStickerContent
 import io.element.android.libraries.androidutils.filesize.FileSizeFormatter
 import io.element.android.libraries.core.mimetype.MimeTypes
+import io.element.android.libraries.matrix.api.core.EventId
 import io.element.android.libraries.matrix.api.timeline.item.event.StickerContent
 import io.element.android.libraries.mediaviewer.api.util.FileExtensionExtractor
 
@@ -31,7 +32,7 @@ class TimelineItemContentStickerFactory(
         return result?.takeIf { it.isFinite() }
     }
 
-    fun create(content: StickerContent): TimelineItemEventContent {
+    fun create(content: StickerContent, eventId: EventId? = null): TimelineItemEventContent {
         val aspectRatio = aspectRatioOf(content.info.width, content.info.height)
 
         return TimelineItemStickerContent(
@@ -48,7 +49,9 @@ class TimelineItemContentStickerFactory(
             height = content.info.height?.toInt(),
             aspectRatio = aspectRatio,
             formattedFileSize = fileSizeFormatter.format(content.info.size ?: 0),
-            fileExtension = fileExtensionExtractor.extractFromName(content.filename)
+            fileExtension = fileExtensionExtractor.extractFromName(content.filename),
+            eventId = eventId,
+            audio = content.audio,
         )
     }
 }

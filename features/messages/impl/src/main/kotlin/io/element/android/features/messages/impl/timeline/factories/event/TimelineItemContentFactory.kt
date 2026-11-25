@@ -101,7 +101,7 @@ class TimelineItemContentFactory(
                 val senderDisambiguatedDisplayName = senderProfile.getDisambiguatedDisplayName(sender)
                 stateFactory.create(itemContent, isOutgoing, sender, senderDisambiguatedDisplayName)
             }
-            is StickerContent -> stickerFactory.create(itemContent)
+            is StickerContent -> stickerFactory.create(itemContent, eventId)
             is PollContent -> pollFactory.create(eventId, isEditable, isOutgoing, itemContent)
             is UnableToDecryptContent -> utdFactory.create(itemContent)
             is CallNotifyContent -> TimelineItemRtcNotificationContent(
