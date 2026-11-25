@@ -19,6 +19,11 @@ import kotlinx.collections.immutable.ImmutableList
 data class AttachmentsPreviewState(
     val attachments: ImmutableList<Attachment>,
     val selectedIndex: Int,
+    /**
+     * Indices of the attachments which have already been sent. They can no longer be removed or edited, so that
+     * retrying a partially failed multi-send never sends the same media twice.
+     */
+    val sentAttachmentIndices: ImmutableList<Int>,
     val imageEditorState: AttachmentImageEditorState?,
     val canEditImage: Boolean,
     val isApplyingImageEdits: Boolean,

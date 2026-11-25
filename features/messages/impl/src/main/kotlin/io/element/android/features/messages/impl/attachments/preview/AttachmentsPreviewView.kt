@@ -370,6 +370,8 @@ private fun AttachmentsThumbnailStrip(
         itemsIndexed(state.attachments) { index, attachment ->
             val media = attachment as? Attachment.Media ?: return@itemsIndexed
             val isSelected = index == state.selectedIndex
+            // Attachments which have already been sent cannot be removed any more.
+            val canRemove = index !in state.sentAttachmentIndices
             Box {
                 AsyncImage(
                     model = media.localMedia.uri,
@@ -389,20 +391,22 @@ private fun AttachmentsThumbnailStrip(
                             state.eventSink(AttachmentsPreviewEvent.SelectAttachment(index))
                         },
                 )
-                IconButton(
-                    onClick = {
-                        state.eventSink(AttachmentsPreviewEvent.RemoveAttachment(index))
-                    },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(20.dp),
-                ) {
-                    Icon(
-                        imageVector = CompoundIcons.Close(),
-                        contentDescription = stringResource(CommonStrings.action_remove),
-                        tint = ElementTheme.colors.iconPrimary,
-                        modifier = Modifier.size(14.dp),
-                    )
+                if (canRemove) {
+                    IconButton(
+                        onClick = {
+                            state.eventSink(AttachmentsPreviewEvent.RemoveAttachment(index))
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(20.dp),
+                    ) {
+                        Icon(
+                            imageVector = CompoundIcons.Close(),
+                            contentDescription = stringResource(CommonStrings.action_remove),
+                            tint = ElementTheme.colors.iconPrimary,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
                 }
             }
         }

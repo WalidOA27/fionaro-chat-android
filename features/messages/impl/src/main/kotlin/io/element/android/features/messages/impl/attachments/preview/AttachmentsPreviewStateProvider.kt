@@ -83,6 +83,7 @@ fun anAttachmentsPreviewState(
         )
     }.toImmutableList(),
     selectedIndex = selectedIndex,
+    sentAttachmentIndices = persistentListOf(),
     imageEditorState = imageEditorState,
     canEditImage = true,
     isApplyingImageEdits = false,

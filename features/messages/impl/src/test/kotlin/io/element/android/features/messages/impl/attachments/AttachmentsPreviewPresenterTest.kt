@@ -412,6 +412,114 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
     }
 
     @Test
+    fun `present - swiping after a partial failure does not resend the attachments which were already sent`() = runTest {
+        val captions = mutableListOf<String?>()
+        var callCount = 0
+        val room = FakeJoinedRoom(
+            liveTimeline = FakeTimeline().apply {
+                sendFileLambda = { _, _, caption, _, _ ->
+                    callCount++
+                    captions.add(caption)
+                    if (callCount == 4) {
+                        Result.failure(RuntimeException("Failed to send"))
+                    } else {
+                        Result.success(FakeMediaUploadHandler())
+                    }
+                }
+            },
+        )
+        val onDoneListener = lambdaRecorder<Unit> { }
+        val presenter = createAttachmentsPreviewPresenter(
+            room = room,
+            localMedias = List(5) { aLocalMedia(uri = Uri.parse("content://media-$it")) },
+            onDoneListener = { onDoneListener() },
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.textEditorState.setMarkdown(A_CAPTION)
+            initialState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+
+            val failedState = consumeItemsUntilPredicate {
+                it.sendActionState is SendActionState.Failure
+            }.last()
+            // The first three attachments have been sent, the fourth one failed.
+            assertThat(callCount).isEqualTo(4)
+            onDoneListener.assertions().isCalledExactly(0)
+
+            // Moving to another attachment must not reset the send progress.
+            failedState.eventSink(AttachmentsPreviewEvent.SelectAttachment(4))
+            consumeItemsUntilPredicate { it.selectedIndex == 4 }.last()
+
+            failedState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+            consumeItemsUntilPredicate { it.sendActionState == SendActionState.Done }
+            // Marking the last items as sent can trigger a final state update (e.g. `canEditImage`).
+            cancelAndIgnoreRemainingEvents()
+
+            // Only the fourth (retried) and the fifth attachments are sent again.
+            assertThat(callCount).isEqualTo(6)
+            // The caption is only attached to the last attachment of the whole selection.
+            assertThat(captions).containsExactly(null, null, null, null, null, A_CAPTION).inOrder()
+            onDoneListener.assertions().isCalledOnce()
+        }
+    }
+
+    @Test
+    fun `present - removing an unsent attachment after a partial failure does not resend the sent ones`() = runTest {
+        val captions = mutableListOf<String?>()
+        var callCount = 0
+        val room = FakeJoinedRoom(
+            liveTimeline = FakeTimeline().apply {
+                sendFileLambda = { _, _, caption, _, _ ->
+                    callCount++
+                    captions.add(caption)
+                    if (callCount == 2) {
+                        Result.failure(RuntimeException("Failed to send"))
+                    } else {
+                        Result.success(FakeMediaUploadHandler())
+                    }
+                }
+            },
+        )
+        val onDoneListener = lambdaRecorder<Unit> { }
+        val presenter = createAttachmentsPreviewPresenter(
+            room = room,
+            localMedias = List(4) { aLocalMedia(uri = Uri.parse("content://media-$it")) },
+            onDoneListener = { onDoneListener() },
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.textEditorState.setMarkdown(A_CAPTION)
+            initialState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+
+            val failedState = consumeItemsUntilPredicate {
+                it.sendActionState is SendActionState.Failure
+            }.last()
+            // The first attachment has been sent, the second one failed.
+            assertThat(callCount).isEqualTo(2)
+
+            // Sent attachments cannot be removed any more.
+            failedState.eventSink(AttachmentsPreviewEvent.RemoveAttachment(0))
+            expectNoEvents()
+
+            // Removing an unsent attachment must not reset the send progress either.
+            failedState.eventSink(AttachmentsPreviewEvent.RemoveAttachment(3))
+            val stateAfterRemoval = consumeItemsUntilPredicate { it.attachments.size == 3 }.last()
+            assertThat(callCount).isEqualTo(2)
+
+            stateAfterRemoval.eventSink(AttachmentsPreviewEvent.SendAttachment)
+            consumeItemsUntilPredicate { it.sendActionState == SendActionState.Done }
+            // Marking the last items as sent can trigger a final state update (e.g. `canEditImage`).
+            cancelAndIgnoreRemainingEvents()
+
+            // Only the failed second attachment and the (previously third) remaining one are sent again.
+            assertThat(callCount).isEqualTo(4)
+            // The caption is only attached to the last attachment of the whole (remaining) selection.
+            assertThat(captions).containsExactly(null, null, null, A_CAPTION).inOrder()
+            onDoneListener.assertions().isCalledOnce()
+        }
+    }
+
+    @Test
     fun `present - send image with caption success scenario`() = runTest {
         val sendImageResult =
             lambdaRecorder { _: File, _: File?, _: ImageInfo, _: String?, _: String?, _: EventId? ->

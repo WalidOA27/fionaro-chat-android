@@ -91,21 +91,19 @@ class AttachmentsPreviewPresenter(
 
     /**
      * An attachment being previewed, along with the original picked media and the image edits applied to it.
+     *
+     * [id] is stable for the lifetime of the preview: it is used to keep track of the items which have already been
+     * sent, even if other items are removed from the list. Sent items cannot be removed or edited any more, so that a
+     * retry of a partially failed multi-send never sends the same media twice.
      */
     private data class PreviewItem(
+        val id: Int,
         val originalMedia: LocalMedia,
         val attachment: Attachment.Media,
         val appliedImageEdits: AttachmentImageEdits = AttachmentImageEdits(),
         val editedTempFile: File? = null,
+        val isSent: Boolean = false,
     )
-
-    /**
-     * Keeps track of the attachments which have already been sent, so that retrying a failed multi-send only sends
-     * the remaining attachments.
-     */
-    private class MediaSendProgress {
-        var nextIndex: Int = 0
-    }
 
     private val mediaSender: MediaSender = mediaSenderFactory.create(timelineMode)
 
@@ -115,14 +113,13 @@ class AttachmentsPreviewPresenter(
 
         val items = remember {
             mutableStateListOf<PreviewItem>().apply {
-                attachments.forEach { attachment ->
+                attachments.forEachIndexed { index, attachment ->
                     val media = attachment as Attachment.Media
-                    add(PreviewItem(originalMedia = media.localMedia, attachment = media))
+                    add(PreviewItem(id = index, originalMedia = media.localMedia, attachment = media))
                 }
             }
         }
         var selectedIndex by remember { mutableIntStateOf(0) }
-        val mediaSendProgress = remember { MediaSendProgress() }
 
         val sendActionState = remember {
             mutableStateOf<SendActionState>(SendActionState.Idle)
@@ -192,9 +189,10 @@ class AttachmentsPreviewPresenter(
             }
         }
 
-        LaunchedEffect(currentItem?.originalMedia) {
-            val originalMedia = currentItem?.originalMedia ?: return@LaunchedEffect
-            canEditImage = originalMedia.info.canEditImage() || attachmentImageEditor.canEdit(originalMedia)
+        LaunchedEffect(currentItem?.id, currentItem?.isSent, currentItem?.originalMedia) {
+            val item = currentItem ?: return@LaunchedEffect
+            // Attachments which have already been sent cannot be edited any more.
+            canEditImage = !item.isSent && (item.originalMedia.info.canEditImage() || attachmentImageEditor.canEdit(item.originalMedia))
         }
 
         val maxUploadSize = mediaOptimizationSelectorState.maxUploadSize.dataOrNull()
@@ -226,36 +224,46 @@ class AttachmentsPreviewPresenter(
             }
         }
 
+        fun markAsSent(itemId: Int) {
+            val index = items.indexOfFirst { it.id == itemId }
+            if (index != -1) {
+                items[index] = items[index].copy(isSent = true)
+            }
+        }
+
         suspend fun sendAllItems(
-            attachmentsToSend: List<Attachment.Media>,
+            itemsToSend: List<PreviewItem>,
             caption: String?,
             selectedConfig: MediaOptimizationConfig?,
             selectorState: MediaOptimizationSelectorState,
-            startOffset: Int,
+            alreadySentCount: Int,
             totalCount: Int,
         ): Unit = withContext(dispatchers.io) {
             var sentCount = 0
+            // The caption always belongs to the last item of the whole selection, even when some items have already
+            // been sent by a previous attempt.
+            val lastItemId = items.lastOrNull()?.id
             try {
-                while (sentCount < attachmentsToSend.size) {
-                    val attachmentToSend = attachmentsToSend[sentCount]
+                while (sentCount < itemsToSend.size) {
+                    val itemToSend = itemsToSend[sentCount]
                     mediaSender.cleanUp()
                     val config = selectedConfig ?: getAutoPreprocessMediaOptimizationConfig(
-                        mediaAttachment = attachmentToSend,
+                        mediaAttachment = itemToSend.attachment,
                         mediaOptimizationSelectorState = selectorState,
                     ) ?: return@withContext
                     val mediaUploadInfo = preProcessMediaForSending(
-                        mediaAttachment = attachmentToSend,
+                        mediaAttachment = itemToSend.attachment,
                         mediaOptimizationConfig = config,
                         displayProgress = true,
                         sendActionState = sendActionState,
                     ) ?: return@withContext
                     val success = sendPreProcessedMedia(
                         mediaUploadInfo = mediaUploadInfo,
-                        caption = caption.takeIf { sentCount == attachmentsToSend.lastIndex },
+                        caption = caption.takeIf { itemToSend.id == lastItemId },
                         sendActionState = sendActionState,
                         dismissAfterSend = false,
                         inReplyToEventId = inReplyToEventId,
-                        sentCount = startOffset + sentCount + 1,
+                        sentCount = alreadySentCount + sentCount + 1,
                         totalCount = totalCount,
                         updateDoneState = false,
                     )
@@ -263,7 +271,7 @@ class AttachmentsPreviewPresenter(
                         return@withContext
                     }
                     sentCount++
-                    mediaSendProgress.nextIndex = startOffset + sentCount
+                    markAsSent(itemToSend.id)
                 }
                 cleanupItemFiles(items.toList())
                 sendActionState.value = SendActionState.Done
@@ -340,16 +348,18 @@ class AttachmentsPreviewPresenter(
                                 }
                             }
                         } else {
-                            val startOffset = mediaSendProgress.nextIndex.coerceIn(0, items.lastIndex)
-                            val attachmentsToSend = items.drop(startOffset).map { it.attachment }
+                            // Only send the attachments which have not been sent yet, in order.
+                            val itemsToSend = items.filterNot { it.isSent }
+                            if (itemsToSend.isEmpty()) return@launch
+                            val alreadySentCount = items.count { it.isSent }
                             val totalCount = items.size
                             ongoingSendAttachmentJob.value = sessionCoroutineScope.launch {
                                 sendAllItems(
-                                    attachmentsToSend = attachmentsToSend,
+                                    itemsToSend = itemsToSend,
                                     caption = caption,
                                     selectedConfig = selectedConfig,
                                     selectorState = selectorState,
-                                    startOffset = startOffset,
+                                    alreadySentCount = alreadySentCount,
                                     totalCount = totalCount,
                                 )
                             }
@@ -398,7 +408,6 @@ class AttachmentsPreviewPresenter(
                     preprocessMediaJob?.cancel()
                     preprocessMediaJob = null
                     resetPreparedMedia(sendActionState)
-                    mediaSendProgress.nextIndex = 0
                     selectedIndex = newIndex
                     imageEditorState = null
                     displayFileTooLargeError = false
@@ -406,7 +415,9 @@ class AttachmentsPreviewPresenter(
                 }
                 is AttachmentsPreviewEvent.RemoveAttachment -> {
                     if (sendActionState.value is SendActionState.Sending.Uploading) return
-                    if (event.index !in items.indices) return
+                    val itemToRemove = items.getOrNull(event.index) ?: return
+                    // Attachments which have already been sent cannot be removed any more.
+                    if (itemToRemove.isSent) return
                     if (items.size == 1) {
                         // Removing the last attachment closes the screen.
                         dismiss(sendActionState, items.toList())
@@ -415,7 +426,6 @@ class AttachmentsPreviewPresenter(
                     preprocessMediaJob?.cancel()
                     preprocessMediaJob = null
                     resetPreparedMedia(sendActionState)
-                    mediaSendProgress.nextIndex = 0
                     val removed = items.removeAt(event.index)
                     removed.editedTempFile?.safeDelete()
                     imageEditorState = null
@@ -427,6 +437,8 @@ class AttachmentsPreviewPresenter(
                 }
                 AttachmentsPreviewEvent.OpenImageEditor -> {
                     val item = items.getOrNull(selectedIndex) ?: return
+                    // Attachments which have already been sent cannot be edited any more.
+                    if (item.isSent) return
                     val resolvedCanEditImage = canEditImage || item.originalMedia.info.canEditImage()
                     if (resolvedCanEditImage) {
                         preprocessMediaJob?.cancel()
@@ -475,6 +487,8 @@ class AttachmentsPreviewPresenter(
                     val pendingState = imageEditorState ?: return
                     val index = selectedIndex
                     val item = items.getOrNull(index) ?: return
+                    // Attachments which have already been sent cannot be edited any more.
+                    if (item.isSent) return
                     if (!pendingState.edits.hasChanges) {
                         item.editedTempFile?.safeDelete()
                         items[index] = item.copy(
@@ -526,6 +540,7 @@ class AttachmentsPreviewPresenter(
         return AttachmentsPreviewState(
             attachments = items.map { it.attachment }.toImmutableList(),
             selectedIndex = selectedIndex.coerceIn(items.indices),
+            sentAttachmentIndices = items.mapIndexedNotNull { index, item -> index.takeIf { item.isSent } }.toImmutableList(),
             imageEditorState = imageEditorState,
             canEditImage = canEditImage,
             isApplyingImageEdits = isApplyingImageEdits,
