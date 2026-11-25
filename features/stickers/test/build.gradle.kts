@@ -14,7 +14,7 @@ android {
 }
 
 dependencies {
-    api(projects.features.stickers.api)
+    api(projects.features.stickers.impl)
     implementation(projects.libraries.matrix.api)
     implementation(projects.tests.testutils)
     implementation(libs.coroutines.core)

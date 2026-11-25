@@ -9,7 +9,6 @@ package io.element.android.features.stickers.test
 
 import io.element.android.features.stickers.api.SoundStickerSender
 import io.element.android.libraries.matrix.api.room.JoinedRoom
-import io.element.android.tests.testutils.simulateLongTask
 import java.io.File
 
 class FakeSoundStickerSender(
@@ -32,9 +31,9 @@ class FakeSoundStickerSender(
         audioMimeType: String,
         durationMs: Long,
         body: String,
-    ): Result<Unit> = simulateLongTask {
+    ): Result<Unit> {
         lastParameters = Parameters(room, imageFile, imageMimeType, width, height, audioFile, audioMimeType, durationMs, body)
-        result
+        return result
     }
 
     data class Parameters(
