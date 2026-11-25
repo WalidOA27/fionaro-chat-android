@@ -1,0 +1,262 @@
+/*
+ * Copyright (c) 2026 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial.
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+package io.element.android.features.stickers.impl.creation
+
+import android.Manifest
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import io.element.android.features.stickers.api.SoundStickerSender
+import io.element.android.features.stickers.api.SoundStickerStore
+import io.element.android.features.stickers.api.StickerImage
+import io.element.android.features.stickers.impl.R
+import io.element.android.libraries.architecture.Presenter
+import io.element.android.libraries.core.coroutine.CoroutineDispatchers
+import io.element.android.libraries.core.extensions.runCatchingExceptions
+import io.element.android.libraries.core.mimetype.MimeTypes
+import io.element.android.libraries.di.annotations.SessionCoroutineScope
+import io.element.android.libraries.matrix.api.room.JoinedRoom
+import io.element.android.libraries.mediapickers.api.PickerProvider
+import io.element.android.libraries.permissions.api.PermissionsEvent
+import io.element.android.libraries.permissions.api.PermissionsPresenter
+import io.element.android.libraries.voicerecorder.api.VoiceRecorder
+import io.element.android.libraries.voicerecorder.api.VoiceRecorderState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import timber.log.Timber
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+
+@AssistedInject
+class SoundStickerCreatorPresenter(
+    private val room: JoinedRoom,
+    private val soundStickerSender: SoundStickerSender,
+    private val soundStickerStore: SoundStickerStore,
+    private val mediaFileReader: StickerMediaFileReader,
+    private val voiceRecorder: VoiceRecorder,
+    private val previewPlayer: StickerSoundPreviewPlayer,
+    private val mediaPickerProvider: PickerProvider,
+    private val dispatchers: CoroutineDispatchers,
+    @SessionCoroutineScope private val sessionCoroutineScope: CoroutineScope,
+    permissionsPresenterFactory: PermissionsPresenter.Factory,
+    @Assisted private val navigateUp: () -> Unit,
+) : Presenter<SoundStickerCreatorState> {
+    @AssistedFactory
+    fun interface Factory {
+        fun create(navigateUp: () -> Unit): SoundStickerCreatorPresenter
+    }
+
+    private val permissionsPresenter = permissionsPresenterFactory.create(Manifest.permission.RECORD_AUDIO)
+
+    @Composable
+    override fun present(): SoundStickerCreatorState {
+        val localCoroutineScope = rememberCoroutineScope()
+        val permissionsState = permissionsPresenter.present()
+        val recorderState by voiceRecorder.state.collectAsState(initial = VoiceRecorderState.Idle)
+        val isPlayingSound by previewPlayer.isPlaying.collectAsState()
+        var image by remember { mutableStateOf<StickerImage?>(null) }
+        var sound by remember { mutableStateOf<StickerSoundFile?>(null) }
+        var body by rememberSaveable { mutableStateOf(DEFAULT_BODY) }
+        var saveToMyStickers by rememberSaveable { mutableStateOf(true) }
+        var isSending by remember { mutableStateOf(false) }
+        var errorMessage by remember { mutableStateOf<Int?>(null) }
+        var pendingStartRecording by remember { mutableStateOf(false) }
+        val latestRecorderState by rememberUpdatedState(recorderState)
+
+        suspend fun readImage(uri: android.net.Uri) {
+            mediaFileReader.readImage(uri)
+                .onSuccess { image = it }
+                .onFailure {
+                    Timber.w(it, "Unable to read the picked sticker image")
+                    errorMessage = R.string.screen_sound_sticker_creator_error_image
+                }
+        }
+
+        suspend fun readAudio(uri: android.net.Uri) {
+            mediaFileReader.readAudio(uri)
+                .onSuccess { pickedSound ->
+                    if (pickedSound.durationMs > MAX_DURATION_MS) {
+                        errorMessage = R.string.screen_sound_sticker_creator_error_audio_too_long
+                    } else {
+                        previewPlayer.stop()
+                        sound = pickedSound
+                    }
+                }
+                .onFailure {
+                    Timber.w(it, "Unable to read the picked sticker sound")
+                    errorMessage = R.string.screen_sound_sticker_creator_error_audio
+                }
+        }
+
+        suspend fun startRecording() {
+            sound = null
+            runCatchingExceptions { voiceRecorder.startRecord() }
+                .onFailure {
+                    Timber.w(it, "Unable to start the sticker recording")
+                    errorMessage = R.string.screen_sound_sticker_creator_error_record
+                }
+        }
+
+        suspend fun sendSticker(currentImage: StickerImage, currentSound: StickerSoundFile, currentBody: String, save: Boolean) {
+            isSending = true
+            soundStickerSender.send(
+                room = room,
+                imageFile = currentImage.file,
+                imageMimeType = currentImage.mimeType,
+                width = currentImage.width,
+                height = currentImage.height,
+                audioFile = currentSound.file,
+                audioMimeType = currentSound.mimeType,
+                durationMs = currentSound.durationMs,
+                body = currentBody,
+            ).onSuccess {
+                isSending = false
+                if (save) {
+                    withContext(dispatchers.io) {
+                        soundStickerStore.add(
+                            imageFile = currentImage.file,
+                            imageMimeType = currentImage.mimeType,
+                            width = currentImage.width,
+                            height = currentImage.height,
+                            audioFile = currentSound.file,
+                            audioMimeType = currentSound.mimeType,
+                            durationMs = currentSound.durationMs,
+                            body = currentBody,
+                        ).onFailure { Timber.w(it, "Unable to save the sticker to My stickers") }
+                    }
+                }
+                navigateUp()
+            }.onFailure {
+                Timber.w(it, "Unable to send the sound sticker")
+                isSending = false
+                errorMessage = R.string.screen_sound_sticker_creator_error_send
+            }
+        }
+
+        LaunchedEffect(recorderState) {
+            when (val state = recorderState) {
+                is VoiceRecorderState.Recording -> {
+                    if (state.elapsedTime >= MAX_RECORDING_DURATION) {
+                        voiceRecorder.stopRecord()
+                    }
+                }
+                is VoiceRecorderState.Finished -> {
+                    previewPlayer.stop()
+                    sound = StickerSoundFile(
+                        file = state.file,
+                        mimeType = state.mimeType,
+                        // The recorder may overshoot the cap by a few milliseconds.
+                        durationMs = state.duration.inWholeMilliseconds.coerceIn(1, MAX_DURATION_MS),
+                    )
+                }
+                VoiceRecorderState.Idle -> Unit
+            }
+        }
+
+        LaunchedEffect(permissionsState.permissionGranted) {
+            if (permissionsState.permissionGranted && pendingStartRecording) {
+                pendingStartRecording = false
+                localCoroutineScope.launch { startRecording() }
+            }
+        }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                previewPlayer.stop()
+                if (latestRecorderState is VoiceRecorderState.Recording) {
+                    sessionCoroutineScope.launch {
+                        runCatchingExceptions { voiceRecorder.stopRecord(cancelled = true) }
+                    }
+                }
+            }
+        }
+
+        val galleryImagePicker = mediaPickerProvider.registerGalleryImagePicker { uri ->
+            if (uri != null) {
+                localCoroutineScope.launch { readImage(uri) }
+            }
+        }
+        val audioPicker = mediaPickerProvider.registerFilePicker(MimeTypes.Audio) { uri, _ ->
+            if (uri != null) {
+                localCoroutineScope.launch { readAudio(uri) }
+            }
+        }
+
+        fun handleEvent(event: SoundStickerCreatorEvent) {
+            when (event) {
+                SoundStickerCreatorEvent.PickImage -> galleryImagePicker.launch()
+                SoundStickerCreatorEvent.PickAudio -> audioPicker.launch()
+                SoundStickerCreatorEvent.StartRecording -> {
+                    if (permissionsState.permissionGranted) {
+                        localCoroutineScope.launch { startRecording() }
+                    } else {
+                        pendingStartRecording = true
+                        permissionsState.eventSink(PermissionsEvent.RequestPermissions)
+                    }
+                }
+                SoundStickerCreatorEvent.StopRecording -> localCoroutineScope.launch {
+                    runCatchingExceptions { voiceRecorder.stopRecord() }
+                }
+                SoundStickerCreatorEvent.ToggleSoundPreview -> {
+                    val currentSound = sound ?: return
+                    if (isPlayingSound) {
+                        previewPlayer.stop()
+                    } else {
+                        localCoroutineScope.launch { previewPlayer.play(currentSound.file, currentSound.mimeType) }
+                    }
+                }
+                is SoundStickerCreatorEvent.SetBody -> body = event.body
+                is SoundStickerCreatorEvent.SetSaveToMyStickers -> saveToMyStickers = event.enabled
+                SoundStickerCreatorEvent.Send -> {
+                    val currentImage = image ?: return
+                    val currentSound = sound ?: return
+                    if (!isSending) {
+                        localCoroutineScope.launch {
+                            sendSticker(currentImage, currentSound, body.ifBlank { DEFAULT_BODY }, saveToMyStickers)
+                        }
+                    }
+                }
+                SoundStickerCreatorEvent.DismissError -> errorMessage = null
+                SoundStickerCreatorEvent.NavBack -> navigateUp()
+            }
+        }
+
+        val recordingElapsed = (recorderState as? VoiceRecorderState.Recording)?.elapsedTime ?: Duration.ZERO
+        return SoundStickerCreatorState(
+            image = image,
+            sound = sound,
+            isRecording = recorderState is VoiceRecorderState.Recording,
+            recordingElapsed = recordingElapsed,
+            isPlayingSound = isPlayingSound,
+            body = body,
+            saveToMyStickers = saveToMyStickers,
+            isSending = isSending,
+            errorMessage = errorMessage,
+            permissionsState = permissionsState,
+            eventSink = ::handleEvent,
+        )
+    }
+
+    private companion object {
+        const val DEFAULT_BODY = "Sticker"
+        const val MAX_DURATION_MS = 10_000L
+        val MAX_RECORDING_DURATION = 10.seconds
+    }
+}
