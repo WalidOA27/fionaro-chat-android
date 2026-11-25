@@ -140,6 +140,8 @@ fun MessagesView(
     onLinkClick: (String, Boolean) -> Unit,
     onSendLocationClick: () -> Unit,
     onCreatePollClick: () -> Unit,
+    onSoundStickerClick: () -> Unit,
+    onMyStickersClick: () -> Unit,
     onJoinCallClick: (isAudioCall: Boolean) -> Unit,
     onViewAllPinnedMessagesClick: () -> Unit,
     onThreadsListClick: () -> Unit,
@@ -280,6 +282,8 @@ fun MessagesView(
                             },
                             onSendLocationClick = onSendLocationClick,
                             onCreatePollClick = onCreatePollClick,
+                            onSoundStickerClick = onSoundStickerClick,
+                            onMyStickersClick = onMyStickersClick,
                             onSwipeToReply = { targetEvent ->
                                 state.eventSink(MessagesEvent.HandleAction(TimelineItemAction.Reply, targetEvent))
                             },
@@ -461,6 +465,8 @@ private fun MessagesViewContent(
     onMessageLongClick: (TimelineItem.Event) -> Unit,
     onSendLocationClick: () -> Unit,
     onCreatePollClick: () -> Unit,
+    onSoundStickerClick: () -> Unit,
+    onMyStickersClick: () -> Unit,
     onViewAllPinnedMessagesClick: () -> Unit,
     forceJumpToBottomVisibility: Boolean,
     onSwipeToReply: (TimelineItem.Event) -> Unit,
@@ -477,7 +483,10 @@ private fun MessagesViewContent(
             state = state.composerState,
             onSendLocationClick = onSendLocationClick,
             onCreatePollClick = onCreatePollClick,
+            onSoundStickerClick = onSoundStickerClick,
+            onMyStickersClick = onMyStickersClick,
             enableTextFormatting = state.enableTextFormatting,
+            showSoundStickerEntries = state.timelineState.timelineMode !is Timeline.Mode.Thread,
         )
 
         if (state.voiceMessageComposerState.showPermissionRationaleDialog) {
@@ -641,6 +650,8 @@ internal fun MessagesViewPreview(@PreviewParameter(MessagesStateProvider::class)
         onLinkClick = { _, _ -> },
         onSendLocationClick = {},
         onCreatePollClick = {},
+        onSoundStickerClick = {},
+        onMyStickersClick = {},
         onJoinCallClick = {},
         onViewAllPinnedMessagesClick = { },
         forceJumpToBottomVisibility = true,
@@ -696,6 +707,8 @@ internal fun MessagesViewA11yPreview() = ElementPreview {
         onLinkClick = { _, _ -> },
         onSendLocationClick = {},
         onCreatePollClick = {},
+        onSoundStickerClick = {},
+        onMyStickersClick = {},
         onJoinCallClick = {},
         onViewAllPinnedMessagesClick = {},
         onThreadsListClick = {},

@@ -321,6 +321,14 @@ class MessageComposerPresenter(
                     showAttachmentSourcePicker = false
                     // Navigation to the create poll screen is done at the view layer
                 }
+                MessageComposerEvent.PickAttachmentSource.SoundSticker -> {
+                    showAttachmentSourcePicker = false
+                    // Navigation to the sticker creator is done at the view layer
+                }
+                MessageComposerEvent.PickAttachmentSource.MyStickers -> {
+                    showAttachmentSourcePicker = false
+                    // Navigation to the My stickers tray is done at the view layer
+                }
                 is MessageComposerEvent.ToggleTextFormatting -> {
                     showAttachmentSourcePicker = false
                     localCoroutineScope.toggleTextFormatting(event.enabled, markdownTextEditorState, richTextEditorState)

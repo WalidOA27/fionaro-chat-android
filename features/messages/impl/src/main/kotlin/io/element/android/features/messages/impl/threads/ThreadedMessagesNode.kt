@@ -301,6 +301,8 @@ class ThreadedMessagesNode(
                     },
                     onSendLocationClick = callback::navigateToSendLocation,
                     onCreatePollClick = callback::navigateToCreatePoll,
+                    onSoundStickerClick = {},
+                    onMyStickersClick = {},
                     onJoinCallClick = { isAudioCall ->
                         callback.navigateToRoomCall(room.roomId, isAudioCall)
                     },

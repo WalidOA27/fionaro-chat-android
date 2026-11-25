@@ -705,6 +705,8 @@ private fun AndroidComposeUiTest<ComponentActivity>.setMessagesView(
                 onLinkClick = onLinkClick,
                 onSendLocationClick = onSendLocationClick,
                 onCreatePollClick = onCreatePollClick,
+                onSoundStickerClick = {},
+                onMyStickersClick = {},
                 onJoinCallClick = onJoinCallClick,
                 onViewAllPinnedMessagesClick = onViewAllPinnedMessagesClick,
                 knockRequestsBannerView = {},

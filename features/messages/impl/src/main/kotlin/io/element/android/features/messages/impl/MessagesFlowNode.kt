@@ -57,6 +57,8 @@ import io.element.android.features.messages.impl.timeline.model.event.TimelineIt
 import io.element.android.features.messages.impl.timeline.model.event.duration
 import io.element.android.features.poll.api.create.CreatePollEntryPoint
 import io.element.android.features.poll.api.create.CreatePollMode
+import io.element.android.features.stickers.api.MyStickersEntryPoint
+import io.element.android.features.stickers.api.SoundStickerCreatorEntryPoint
 import io.element.android.libraries.androidutils.system.DeviceHasVulkanSupport
 import io.element.android.libraries.architecture.BackstackWithOverlayBox
 import io.element.android.libraries.architecture.BaseFlowNode
@@ -111,6 +113,8 @@ class MessagesFlowNode(
     private val shareLocationEntryPoint: ShareLocationEntryPoint,
     private val showLocationEntryPoint: ShowLocationEntryPoint,
     private val createPollEntryPoint: CreatePollEntryPoint,
+    private val soundStickerCreatorEntryPoint: SoundStickerCreatorEntryPoint,
+    private val myStickersEntryPoint: MyStickersEntryPoint,
     private val elementCallEntryPoint: ElementCallEntryPoint,
     private val mediaViewerEntryPoint: MediaViewerEntryPoint,
     private val forwardEntryPoint: ForwardEntryPoint,
@@ -175,6 +179,12 @@ class MessagesFlowNode(
 
         @Parcelize
         data class CreatePoll(val timelineMode: Timeline.Mode) : NavTarget
+
+        @Parcelize
+        data object SoundStickerCreator : NavTarget
+
+        @Parcelize
+        data object MyStickers : NavTarget
 
         @Parcelize
         data class EditPoll(val timelineMode: Timeline.Mode, val eventId: EventId) : NavTarget
@@ -287,6 +297,14 @@ class MessagesFlowNode(
 
                     override fun navigateToCreatePoll() {
                         backstack.push(NavTarget.CreatePoll(Timeline.Mode.Live))
+                    }
+
+                    override fun navigateToSoundStickerCreator() {
+                        backstack.push(NavTarget.SoundStickerCreator)
+                    }
+
+                    override fun navigateToMyStickers() {
+                        backstack.push(NavTarget.MyStickers)
                     }
 
                     override fun navigateToEditPoll(eventId: EventId) {
@@ -433,6 +451,18 @@ class MessagesFlowNode(
                         timelineMode = navTarget.timelineMode,
                         mode = CreatePollMode.NewPoll
                     ),
+                )
+            }
+            NavTarget.SoundStickerCreator -> {
+                soundStickerCreatorEntryPoint.createNode(
+                    parentNode = this,
+                    buildContext = buildContext,
+                )
+            }
+            NavTarget.MyStickers -> {
+                myStickersEntryPoint.createNode(
+                    parentNode = this,
+                    buildContext = buildContext,
                 )
             }
             is NavTarget.EditPoll -> {
