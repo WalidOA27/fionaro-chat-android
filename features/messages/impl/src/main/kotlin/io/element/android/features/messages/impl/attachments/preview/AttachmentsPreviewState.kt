@@ -14,9 +14,11 @@ import io.element.android.features.messages.impl.attachments.preview.imageeditor
 import io.element.android.features.messages.impl.attachments.video.MediaOptimizationSelectorState
 import io.element.android.libraries.mediaupload.api.MediaUploadInfo
 import io.element.android.libraries.textcomposer.model.TextEditorState
+import kotlinx.collections.immutable.ImmutableList
 
 data class AttachmentsPreviewState(
-    val attachment: Attachment,
+    val attachments: ImmutableList<Attachment>,
+    val selectedIndex: Int,
     val imageEditorState: AttachmentImageEditorState?,
     val canEditImage: Boolean,
     val isApplyingImageEdits: Boolean,
@@ -26,7 +28,11 @@ data class AttachmentsPreviewState(
     val mediaOptimizationSelectorState: MediaOptimizationSelectorState,
     val displayFileTooLargeError: Boolean,
     val eventSink: (AttachmentsPreviewEvent) -> Unit,
-)
+) {
+    /** The attachment currently displayed in the preview. */
+    val currentAttachment: Attachment
+        get() = attachments[selectedIndex.coerceIn(attachments.indices)]
+}
 
 @Immutable
 sealed interface SendActionState {
@@ -36,7 +42,11 @@ sealed interface SendActionState {
     sealed interface Sending : SendActionState {
         data class Processing(val displayProgress: Boolean) : Sending
         data class ReadyToUpload(val mediaInfo: MediaUploadInfo) : Sending
-        data class Uploading(val mediaUploadInfo: MediaUploadInfo) : Sending
+        data class Uploading(
+            val mediaUploadInfo: MediaUploadInfo,
+            val sentCount: Int = 1,
+            val totalCount: Int = 1,
+        ) : Sending
     }
 
     data class Failure(val error: Throwable, val mediaUploadInfo: MediaUploadInfo?) : SendActionState

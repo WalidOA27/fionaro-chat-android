@@ -11,9 +11,12 @@ package io.element.android.features.messages.impl.attachments.preview
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,14 +24,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -36,6 +49,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import io.element.android.compound.theme.ElementTheme
 import io.element.android.compound.tokens.generated.CompoundIcons
 import io.element.android.features.messages.impl.R
@@ -233,9 +247,18 @@ private fun AttachmentSendStateView(
                 }
             }
             is SendActionState.Sending.Uploading -> {
+                val text = if (sendActionState.totalCount > 1) {
+                    stringResource(
+                        id = R.string.screen_media_upload_preview_sending_progress,
+                        sendActionState.sentCount,
+                        sendActionState.totalCount,
+                    )
+                } else {
+                    stringResource(id = CommonStrings.common_sending)
+                }
                 ProgressDialog(
                     type = ProgressDialogType.Indeterminate,
-                    text = stringResource(id = CommonStrings.common_sending),
+                    text = text,
                     showCancelButton = true,
                     onDismissRequest = onDismissClick,
                 )
@@ -269,13 +292,38 @@ private fun AttachmentPreviewContent(
                 .weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            when (val attachment = state.attachment) {
-                is Attachment.Media -> {
+            val pagerState = rememberPagerState(
+                initialPage = state.selectedIndex,
+                pageCount = { state.attachments.size },
+            )
+            LaunchedEffect(state.selectedIndex, state.attachments.size) {
+                if (state.selectedIndex in state.attachments.indices && pagerState.currentPage != state.selectedIndex) {
+                    pagerState.scrollToPage(state.selectedIndex)
+                }
+            }
+            LaunchedEffect(pagerState) {
+                snapshotFlow { pagerState.currentPage }.collect { page ->
+                    if (page != state.selectedIndex) {
+                        state.eventSink(AttachmentsPreviewEvent.SelectAttachment(page))
+                    }
+                }
+            }
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                key = { page ->
+                    (state.attachments.getOrNull(page) as? Attachment.Media)?.localMedia?.uri ?: page
+                },
+            ) { page ->
+                (state.attachments.getOrNull(page) as? Attachment.Media)?.let { attachment ->
                     localMediaRenderer.Render(attachment.localMedia)
                 }
             }
         }
-        val mediaInfo = (state.attachment as? Attachment.Media)?.localMedia?.info
+        if (state.attachments.size > 1) {
+            AttachmentsThumbnailStrip(state = state)
+        }
+        val mediaInfo = (state.currentAttachment as? Attachment.Media)?.localMedia?.info
         if (mediaInfo?.isImageAttachment() == true) {
             ImageOptimizationSelector(state.mediaOptimizationSelectorState)
         } else if (mediaInfo?.mimeType?.isMimeTypeVideo() == true) {
@@ -304,6 +352,60 @@ private fun AttachmentPreviewContent(
                 .height(IntrinsicSize.Min)
                 .imePadding(),
         )
+    }
+}
+
+@Composable
+private fun AttachmentsThumbnailStrip(
+    state: AttachmentsPreviewState,
+    modifier: Modifier = Modifier,
+) {
+    LazyRow(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        itemsIndexed(state.attachments) { index, attachment ->
+            val media = attachment as? Attachment.Media ?: return@itemsIndexed
+            val isSelected = index == state.selectedIndex
+            Box {
+                AsyncImage(
+                    model = media.localMedia.uri,
+                    contentDescription = media.localMedia.info.filename,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .then(
+                            if (isSelected) {
+                                Modifier.border(2.dp, ElementTheme.colors.borderAccentPrimary, RoundedCornerShape(8.dp))
+                            } else {
+                                Modifier
+                            }
+                        )
+                        .niceClickable {
+                            state.eventSink(AttachmentsPreviewEvent.SelectAttachment(index))
+                        },
+                )
+                IconButton(
+                    onClick = {
+                        state.eventSink(AttachmentsPreviewEvent.RemoveAttachment(index))
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(20.dp),
+                ) {
+                    Icon(
+                        imageVector = CompoundIcons.Close(),
+                        contentDescription = stringResource(CommonStrings.action_remove),
+                        tint = ElementTheme.colors.iconPrimary,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+        }
     }
 }
 

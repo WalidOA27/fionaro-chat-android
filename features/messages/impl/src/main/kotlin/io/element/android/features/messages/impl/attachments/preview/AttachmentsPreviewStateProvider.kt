@@ -28,6 +28,7 @@ import io.element.android.libraries.textcomposer.model.TextEditorState
 import io.element.android.libraries.textcomposer.model.aTextEditorStateMarkdown
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import java.io.File
 
 open class AttachmentsPreviewStateProvider : PreviewParameterProvider<AttachmentsPreviewState> {
@@ -62,6 +63,7 @@ open class AttachmentsPreviewStateProvider : PreviewParameterProvider<Attachment
                     displayVideoPresetSelectorDialog = true,
                 )
             ),
+            anAttachmentsPreviewState(attachmentsCount = 3),
         )
 }
 
@@ -72,10 +74,15 @@ fun anAttachmentsPreviewState(
     imageEditorState: AttachmentImageEditorState? = null,
     mediaOptimizationSelectorState: MediaOptimizationSelectorState = aMediaOptimisationSelectorState(),
     displayFileTooLargeError: Boolean = false,
+    attachmentsCount: Int = 1,
+    selectedIndex: Int = 0,
 ) = AttachmentsPreviewState(
-    attachment = Attachment.Media(
-        localMedia = LocalMedia("file://path".toUri(), mediaInfo),
-    ),
+    attachments = (0 until attachmentsCount).map { index ->
+        Attachment.Media(
+            localMedia = LocalMedia("file://path$index".toUri(), mediaInfo),
+        )
+    }.toImmutableList(),
+    selectedIndex = selectedIndex,
     imageEditorState = imageEditorState,
     canEditImage = true,
     isApplyingImageEdits = false,

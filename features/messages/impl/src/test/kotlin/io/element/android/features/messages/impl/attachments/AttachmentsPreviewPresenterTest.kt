@@ -70,6 +70,7 @@ import io.element.android.tests.testutils.testCoroutineDispatchers
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -267,6 +268,58 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
             deleteCallback.assertions().isCalledOnce()
             onDoneListener.assertions().isCalledOnce()
             assertThat(mediaPreProcessor.cleanUpCallCount).isEqualTo(1)
+        }
+    }
+
+    @Test
+    fun `present - remove an attachment`() = runTest {
+        val firstMedia = aLocalMedia(uri = mockMediaUrl)
+        val secondMedia = aLocalMedia(uri = Uri.parse("content://second-media"))
+        val presenter = createAttachmentsPreviewPresenter(
+            localMedias = listOf(firstMedia, secondMedia),
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            assertThat(initialState.attachments).hasSize(2)
+            assertThat(initialState.selectedIndex).isEqualTo(0)
+
+            initialState.eventSink(AttachmentsPreviewEvent.RemoveAttachment(0))
+
+            val state = awaitItem()
+            assertThat(state.attachments).hasSize(1)
+            assertThat(state.selectedIndex).isEqualTo(0)
+            assertThat((state.currentAttachment as Attachment.Media).localMedia.uri).isEqualTo(secondMedia.uri)
+        }
+    }
+
+    @Test
+    fun `present - removing the last attachment closes the screen`() = runTest {
+        val onDoneListener = lambdaRecorder<Unit> { }
+        val presenter = createAttachmentsPreviewPresenter(
+            temporaryUriDeleter = FakeTemporaryUriDeleter { },
+            onDoneListener = { onDoneListener() },
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.eventSink(AttachmentsPreviewEvent.RemoveAttachment(0))
+            assertThat(awaitItem().sendActionState).isEqualTo(SendActionState.Done)
+            onDoneListener.assertions().isCalledOnce()
+        }
+    }
+
+    @Test
+    fun `present - select another attachment`() = runTest {
+        val firstMedia = aLocalMedia(uri = mockMediaUrl)
+        val secondMedia = aLocalMedia(uri = Uri.parse("content://second-media"))
+        val presenter = createAttachmentsPreviewPresenter(
+            localMedias = listOf(firstMedia, secondMedia),
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.eventSink(AttachmentsPreviewEvent.SelectAttachment(1))
+            val state = awaitItem()
+            assertThat(state.selectedIndex).isEqualTo(1)
+            assertThat((state.currentAttachment as Attachment.Media).localMedia.uri).isEqualTo(secondMedia.uri)
         }
     }
 
@@ -584,7 +637,7 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
             assertThat(awaitItem().isApplyingImageEdits).isTrue()
 
             val appliedState = awaitItem()
-            assertThat((appliedState.attachment as Attachment.Media).localMedia.uri).isEqualTo(editedUri)
+            assertThat((appliedState.currentAttachment as Attachment.Media).localMedia.uri).isEqualTo(editedUri)
             assertThat(appliedState.imageEditorState).isNull()
             assertThat(appliedState.isApplyingImageEdits).isFalse()
         }
@@ -629,7 +682,7 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
             flippedState.eventSink(AttachmentsPreviewEvent.ApplyImageEdits)
 
             val appliedState = consumeItemsUntilPredicate { !it.isApplyingImageEdits && it.imageEditorState == null }.last()
-            assertThat((appliedState.attachment as Attachment.Media).localMedia.uri).isEqualTo(editedUri)
+            assertThat((appliedState.currentAttachment as Attachment.Media).localMedia.uri).isEqualTo(editedUri)
 
             appliedState.eventSink(AttachmentsPreviewEvent.OpenImageEditor)
             val reopenedState = consumeItemsUntilPredicate { it.imageEditorState != null }.last()
@@ -867,6 +920,7 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
         localMedia: LocalMedia = aLocalMedia(
             uri = mockMediaUrl,
         ),
+        localMedias: List<LocalMedia> = listOf(localMedia),
         sendAsFile: Boolean = false,
         room: JoinedRoom = FakeJoinedRoom(),
         timelineMode: Timeline.Mode = Timeline.Mode.Live,
@@ -900,7 +954,7 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
         videoCompressionPresetSelector: VideoCompressionPresetSelector = VideoCompressionPresetSelector(),
     ): AttachmentsPreviewPresenter {
         return AttachmentsPreviewPresenter(
-            attachment = aMediaAttachment(localMedia, sendAsFile = sendAsFile),
+            attachments = localMedias.map { aMediaAttachment(it, sendAsFile = sendAsFile) }.toImmutableList(),
             onDoneListener = onDoneListener,
             mediaSenderFactory = MediaSenderFactory { timelineMode ->
                 DefaultMediaSender(
