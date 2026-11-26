@@ -5,6 +5,7 @@ How to announce a new Fionaro Chat version on the announcement board.
 <!--- TOC -->
 
 * [Where](#where)
+  * [Every user is a member](#every-user-is-a-member)
 * [Message format](#message-format)
 * [Publishing](#publishing)
   * [How it works](#how-it-works)
@@ -14,8 +15,30 @@ How to announce a new Fionaro Chat version on the announcement board.
 
 ## Where
 
-The board is the Matrix room **Anuncios Fionaro** (`!cBndmQDEDywPmRQzqI:fionaro.pw`). It is not encrypted. Only
-`@admin:fionaro.pw` (power level 100) can post. Users read it in Fionaro Chat.
+The board is the Matrix room **Anuncios Fionaro** (`!cBndmQDEDywPmRQzqI:fionaro.pw`, alias `#anuncios:fionaro.pw`). It is
+public and not encrypted. `@admin:fionaro.pw` (power level 100) is its admin. Users read it in Fionaro Chat.
+
+### Every user is a member
+
+Synapse joins every new account to the board at registration (`homeserver.yaml`):
+
+```yaml
+auto_join_rooms:
+  - "#anuncios:fionaro.pw"
+autocreate_auto_join_rooms: false
+```
+
+`auto_join_rooms` only accepts aliases, not room IDs; a room ID makes Synapse refuse to start. Validate a config change
+before restarting:
+
+```bash
+docker exec matrix_synapse python -c "from synapse.config.homeserver import HomeServerConfig; \
+  print(HomeServerConfig.load_config('t', ['-c', '/data/homeserver.yaml']).registration.auto_join_rooms)"
+```
+
+Accounts created before this setting were added on 2026-11-26 with the admin API
+(`POST /_synapse/admin/v1/join/<room_id>` with `{"user_id": "..."}`, as the server admin). Bots (`@hermes`, `@sre`) and
+test accounts were left out.
 
 ## Message format
 
