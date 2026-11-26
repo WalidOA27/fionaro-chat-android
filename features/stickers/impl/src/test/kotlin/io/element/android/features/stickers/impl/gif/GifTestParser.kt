@@ -7,7 +7,7 @@
 
 package io.element.android.features.stickers.impl.gif
 
-internal class ParsedGif(
+internal data class ParsedGif(
     val width: Int,
     val height: Int,
     val loopCount: Int?,
@@ -31,7 +31,7 @@ internal class ParsedGif(
                         if (label == 0xF9) {
                             val size = bytes[index].toInt() and 0xFF
                             val data = bytes.copyOfRange(index + 1, index + 1 + size)
-                            pendingDelay = (data[1].toInt() and 0xFF) or ((data[2].toInt() and 0xFF) shl 8)
+                            pendingDelay = data[1].toInt() and 0xFF or (data[2].toInt() and 0xFF shl 8)
                             index += 1 + size
                             index = bytes.skipSubBlocks(index)
                         } else {
@@ -43,7 +43,7 @@ internal class ParsedGif(
                                     val subSize = bytes[index].toInt() and 0xFF
                                     val data = bytes.copyOfRange(index + 1, index + 1 + subSize)
                                     if (data.size >= 3 && data[0].toInt() == 1) {
-                                        loopCount = (data[1].toInt() and 0xFF) or ((data[2].toInt() and 0xFF) shl 8)
+                                        loopCount = data[1].toInt() and 0xFF or (data[2].toInt() and 0xFF shl 8)
                                     }
                                 }
                             }
@@ -59,13 +59,13 @@ internal class ParsedGif(
                         index += 10
                         var palette = IntArray(0)
                         if (packed and 0x80 != 0) {
-                            val colorCount = 1 shl ((packed and 0x07) + 1)
+                            val colorCount = 1 shl (packed and 0x07) + 1
                             palette = IntArray(colorCount) { colorIndex ->
                                 val offset = index + colorIndex * 3
                                 val r = bytes[offset].toInt() and 0xFF
                                 val g = bytes[offset + 1].toInt() and 0xFF
                                 val b = bytes[offset + 2].toInt() and 0xFF
-                                (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+                                0xFF shl 24 or (r shl 16) or (g shl 8) or b
                             }
                             index += colorCount * 3
                         }
@@ -93,7 +93,7 @@ internal class ParsedGif(
         }
 
         private fun ByteArray.uint16(offset: Int): Int =
-            (this[offset].toInt() and 0xFF) or ((this[offset + 1].toInt() and 0xFF) shl 8)
+            this[offset].toInt() and 0xFF or (this[offset + 1].toInt() and 0xFF shl 8)
 
         private fun ByteArray.skipSubBlocks(start: Int): Int {
             var index = start
@@ -146,11 +146,11 @@ internal object LzwDecoder {
         while (true) {
             while (bitCount < codeSize) {
                 if (byteIndex >= data.size) return output
-                bitBuffer = bitBuffer or ((data[byteIndex].toInt() and 0xFF) shl bitCount)
+                bitBuffer = bitBuffer or (data[byteIndex].toInt() and 0xFF shl bitCount)
                 bitCount += 8
                 byteIndex += 1
             }
-            val code = bitBuffer and ((1 shl codeSize) - 1)
+            val code = bitBuffer and (1 shl codeSize) - 1
             bitBuffer = bitBuffer ushr codeSize
             bitCount -= codeSize
 
@@ -170,7 +170,7 @@ internal object LzwDecoder {
                     output.addAll(entry.toList())
                     if (previous != null && dictionary.size < 4096) {
                         dictionary.add(previous + entry[0])
-                        if (dictionary.size == (1 shl codeSize) && codeSize < 12) {
+                        if (dictionary.size == 1 shl codeSize && codeSize < 12) {
                             codeSize += 1
                         }
                     }

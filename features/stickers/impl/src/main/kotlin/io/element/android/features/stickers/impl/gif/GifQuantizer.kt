@@ -48,12 +48,12 @@ internal class GifPalette(
         private const val UNKNOWN = -1
 
         fun bucketOf(color: Int): Int {
-            return ((color shr 9) and 0x7C00) or ((color shr 6) and 0x03E0) or ((color shr 3) and 0x1F)
+            return color shr 9 and 0x7C00 or (color shr 6 and 0x03E0) or (color shr 3 and 0x1F)
         }
 
         private fun distance(first: Int, second: Int): Int {
-            val red = ((first shr 16) and 0xFF) - ((second shr 16) and 0xFF)
-            val green = ((first shr 8) and 0xFF) - ((second shr 8) and 0xFF)
+            val red = (first shr 16 and 0xFF) - (second shr 16 and 0xFF)
+            val green = (first shr 8 and 0xFF) - (second shr 8 and 0xFF)
             val blue = (first and 0xFF) - (second and 0xFF)
             return red * red + green * green + blue * blue
         }
@@ -78,8 +78,8 @@ internal object GifQuantizer {
         for (color in pixels) {
             val bucket = GifPalette.bucketOf(color)
             counts[bucket] += 1
-            redSums[bucket] += (color shr 16) and 0xFF
-            greenSums[bucket] += (color shr 8) and 0xFF
+            redSums[bucket] += color shr 16 and 0xFF
+            greenSums[bucket] += color shr 8 and 0xFF
             blueSums[bucket] += color and 0xFF
         }
 
@@ -172,18 +172,18 @@ internal object GifQuantizer {
         return if (count == 0L) {
             0xFF000000.toInt()
         } else {
-            (0xFF shl 24) or
-                (((red / count).toInt() and 0xFF) shl 16) or
-                (((green / count).toInt() and 0xFF) shl 8) or
+            0xFF shl 24 or
+                ((red / count).toInt() and 0xFF shl 16) or
+                ((green / count).toInt() and 0xFF shl 8) or
                 ((blue / count).toInt() and 0xFF)
         }
     }
 
     private fun channelValue(bucket: Int, channel: Int): Int = when (channel) {
-        0 -> (bucket shr 10) and 0x1F
-        1 -> (bucket shr 5) and 0x1F
+        0 -> bucket shr 10 and 0x1F
+        1 -> bucket shr 5 and 0x1F
         else -> bucket and 0x1F
     }
 
-    private class Box(val buckets: MutableList<Int>)
+    private data class Box(val buckets: MutableList<Int>)
 }

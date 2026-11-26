@@ -89,19 +89,24 @@ class DefaultStickerVideoAudioExtractor(
             var samplesWritten = 0
 
             extractor.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
-            while (true) {
+            var readNext = true
+            while (readNext) {
                 buffer.clear()
                 val size = extractor.readSampleData(buffer, 0)
-                if (size < 0) break
-                val sampleTimeUs = extractor.sampleTime
-                if (sampleTimeUs >= endUs) break
-                if (sampleTimeUs >= startUs) {
-                    if (firstSampleTimeUs == UNKNOWN_TIME) firstSampleTimeUs = sampleTimeUs
-                    info.set(0, size, sampleTimeUs - firstSampleTimeUs, extractor.sampleFlags)
-                    muxer.writeSampleData(muxerTrack, buffer, info)
-                    samplesWritten += 1
+                readNext = size >= 0
+                if (readNext) {
+                    val sampleTimeUs = extractor.sampleTime
+                    readNext = sampleTimeUs < endUs
+                    if (readNext) {
+                        if (sampleTimeUs >= startUs) {
+                            if (firstSampleTimeUs == UNKNOWN_TIME) firstSampleTimeUs = sampleTimeUs
+                            info.set(0, size, sampleTimeUs - firstSampleTimeUs, extractor.sampleFlags)
+                            muxer.writeSampleData(muxerTrack, buffer, info)
+                            samplesWritten += 1
+                        }
+                        readNext = extractor.advance()
+                    }
                 }
-                if (!extractor.advance()) break
             }
             check(samplesWritten > 0) { "The video has no audio in the selected window" }
             return StickerSoundFile(
@@ -113,7 +118,7 @@ class DefaultStickerVideoAudioExtractor(
             extractor.release()
             muxer?.let { mediaMuxer ->
                 if (muxerStarted) {
-                    runCatching { mediaMuxer.stop() }
+                    runCatchingExceptions { mediaMuxer.stop() }
                 }
                 mediaMuxer.release()
             }

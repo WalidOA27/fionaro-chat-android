@@ -50,12 +50,15 @@ internal class GifLzwEncoder(
         output.write(0)
     }
 
+    // The nested continue/break mirror the original C implementation, splitting them would
+    // make the compressor much harder to compare with the reference.
+    @Suppress("LoopWithTooManyJumpStatements")
     private fun compress(initialBits: Int, output: OutputStream) {
         initialBitsField = initialBits
         clearFlag = false
         codeSize = initialBits
         maxCode = maxCode(codeSize)
-        clearCode = 1 shl (initialBits - 1)
+        clearCode = 1 shl initialBits - 1
         endOfInformationCode = clearCode + 1
         freeEntry = clearCode + 2
         accumulatedCount = 0
@@ -76,7 +79,7 @@ internal class GifLzwEncoder(
             current = nextPixel()
             if (current == END_OF_PIXELS) break
             val key = (current shl MAX_BITS) + entry
-            var index = (current shl hashShift) xor entry
+            var index = current shl hashShift xor entry
             if (hashTable[index] == key) {
                 entry = codeTable[index]
                 continue

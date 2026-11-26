@@ -8,11 +8,13 @@
 package io.element.android.features.stickers.impl.creation
 
 import android.Manifest
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -26,6 +28,7 @@ import io.element.android.features.stickers.api.SoundStickerSender
 import io.element.android.features.stickers.api.SoundStickerStore
 import io.element.android.features.stickers.api.StickerImage
 import io.element.android.features.stickers.impl.R
+import io.element.android.features.stickers.impl.gif.StickerGifEncodingPlan
 import io.element.android.libraries.architecture.Presenter
 import io.element.android.libraries.core.coroutine.CoroutineDispatchers
 import io.element.android.libraries.core.extensions.runCatchingExceptions
@@ -37,7 +40,10 @@ import io.element.android.libraries.permissions.api.PermissionsEvent
 import io.element.android.libraries.permissions.api.PermissionsPresenter
 import io.element.android.libraries.voicerecorder.api.VoiceRecorder
 import io.element.android.libraries.voicerecorder.api.VoiceRecorderState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -50,6 +56,8 @@ class SoundStickerCreatorPresenter(
     private val soundStickerSender: SoundStickerSender,
     private val soundStickerStore: SoundStickerStore,
     private val mediaFileReader: StickerMediaFileReader,
+    private val animationProcessor: StickerAnimationProcessor,
+    private val videoAudioExtractor: StickerVideoAudioExtractor,
     private val voiceRecorder: VoiceRecorder,
     private val previewPlayer: StickerSoundPreviewPlayer,
     private val mediaPickerProvider: PickerProvider,
@@ -72,15 +80,48 @@ class SoundStickerCreatorPresenter(
         val recorderState by voiceRecorder.state.collectAsState(initial = VoiceRecorderState.Idle)
         val isPlayingSound by previewPlayer.isPlaying.collectAsState()
         var image by remember { mutableStateOf<StickerImage?>(null) }
+        var isPreparingAnimation by remember { mutableStateOf(false) }
+        var preparationProgress by remember { mutableFloatStateOf(0f) }
+        var video by remember { mutableStateOf<StickerVideo?>(null) }
         var sound by remember { mutableStateOf<StickerSoundFile?>(null) }
+        var isUsingVideoSound by remember { mutableStateOf(false) }
         var body by rememberSaveable { mutableStateOf(DEFAULT_BODY) }
         var saveToMyStickers by rememberSaveable { mutableStateOf(true) }
         var isSending by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<Int?>(null) }
         var pendingStartRecording by remember { mutableStateOf(false) }
+        var processingJob by remember { mutableStateOf<Job?>(null) }
         val latestRecorderState by rememberUpdatedState(recorderState)
 
-        suspend fun readImage(uri: android.net.Uri) {
+        /**
+         * Runs [block] as the only media processing job: any previous one is cancelled and
+         * joined first, so that a stale encoding can never overwrite a newer result.
+         */
+        fun startProcessing(block: suspend () -> Unit) {
+            val previousJob = processingJob
+            val job = localCoroutineScope.launch {
+                previousJob?.cancelAndJoin()
+                isPreparingAnimation = true
+                preparationProgress = 0f
+                try {
+                    block()
+                } finally {
+                    isPreparingAnimation = false
+                }
+            }
+            processingJob = job
+        }
+
+        fun resetMedia() {
+            previewPlayer.stop()
+            image = null
+            video = null
+            sound = null
+            isUsingVideoSound = false
+        }
+
+        suspend fun readImage(uri: Uri) {
+            resetMedia()
             mediaFileReader.readImage(uri)
                 .onSuccess { image = it }
                 .onFailure {
@@ -89,13 +130,53 @@ class SoundStickerCreatorPresenter(
                 }
         }
 
-        suspend fun readAudio(uri: android.net.Uri) {
+        suspend fun prepareAnimation(source: StickerVideoSource, startMs: Long) {
+            val (_, durationMs) = StickerGifEncodingPlan.videoWindow(startMs, source.durationMs)
+            preparationProgress = 0f
+            animationProcessor.processVideo(source.file, startMs, durationMs) { progress ->
+                localCoroutineScope.launch { preparationProgress = progress }
+            }.onSuccess {
+                image = it
+            }.onFailure {
+                Timber.w(it, "Unable to encode the sticker animation")
+                image = null
+                errorMessage = R.string.screen_sound_sticker_creator_error_video_too_complex
+            }
+        }
+
+        suspend fun readVideo(uri: Uri) {
+            resetMedia()
+            mediaFileReader.readVideo(uri)
+                .onSuccess { source ->
+                    val startMs = 0L
+                    video = StickerVideo(source = source, startMs = startMs, thumbnailFile = null)
+                    // Preselect the video sound, the user can still record or pick another one.
+                    isUsingVideoSound = source.hasAacAudioTrack
+                    val thumbnail = mediaFileReader.readVideoThumbnail(source, startMs).getOrNull()
+                    video = video?.copy(thumbnailFile = thumbnail)
+                    prepareAnimation(source, startMs)
+                }
+                .onFailure {
+                    Timber.w(it, "Unable to read the picked sticker video")
+                    errorMessage = R.string.screen_sound_sticker_creator_error_video
+                }
+        }
+
+        suspend fun prepareVideoWindow(current: StickerVideo, startMs: Long) {
+            val clampedStart = startMs.coerceIn(0, current.maxStartMs)
+            val thumbnail = mediaFileReader.readVideoThumbnail(current.source, clampedStart).getOrNull()
+            video = current.copy(startMs = clampedStart, thumbnailFile = thumbnail ?: current.thumbnailFile)
+            prepareAnimation(current.source, clampedStart)
+        }
+
+        suspend fun readAudio(uri: Uri) {
             mediaFileReader.readAudio(uri)
                 .onSuccess { pickedSound ->
                     if (pickedSound.durationMs > MAX_DURATION_MS) {
                         errorMessage = R.string.screen_sound_sticker_creator_error_audio_too_long
                     } else {
                         previewPlayer.stop()
+                        isUsingVideoSound = false
                         sound = pickedSound
                     }
                 }
@@ -107,6 +188,7 @@ class SoundStickerCreatorPresenter(
 
         suspend fun startRecording() {
             sound = null
+            isUsingVideoSound = false
             runCatchingExceptions { voiceRecorder.startRecord() }
                 .onFailure {
                     Timber.w(it, "Unable to start the sticker recording")
@@ -114,17 +196,42 @@ class SoundStickerCreatorPresenter(
                 }
         }
 
-        suspend fun sendSticker(currentImage: StickerImage, currentSound: StickerSoundFile, currentBody: String, save: Boolean) {
+        /**
+         * The sound of the sticker, or `null` for a silent sticker. The video sound is only
+         * extracted when the sticker is sent, because it depends on the selected window.
+         */
+        suspend fun resolveSound(): StickerSoundFile? {
+            if (!isUsingVideoSound) return sound
+            val currentVideo = video ?: return null
+            val (_, durationMs) = StickerGifEncodingPlan.audioWindow(currentVideo.startMs, currentVideo.source.durationMs)
+            return videoAudioExtractor.extractAudio(
+                videoFile = currentVideo.source.file,
+                startMs = currentVideo.startMs,
+                durationMs = durationMs,
+            ).getOrThrow()
+        }
+
+        suspend fun sendSticker(currentImage: StickerImage, currentBody: String, save: Boolean) {
             isSending = true
+            val audio = try {
+                resolveSound()
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                Timber.w(exception, "Unable to prepare the sticker sound")
+                isSending = false
+                errorMessage = R.string.screen_sound_sticker_creator_error_audio
+                return
+            }
             soundStickerSender.send(
                 room = room,
                 imageFile = currentImage.file,
                 imageMimeType = currentImage.mimeType,
                 width = currentImage.width,
                 height = currentImage.height,
-                audioFile = currentSound.file,
-                audioMimeType = currentSound.mimeType,
-                durationMs = currentSound.durationMs,
+                audioFile = audio?.file,
+                audioMimeType = audio?.mimeType,
+                durationMs = audio?.durationMs,
                 body = currentBody,
             ).onSuccess {
                 isSending = false
@@ -135,16 +242,16 @@ class SoundStickerCreatorPresenter(
                             imageMimeType = currentImage.mimeType,
                             width = currentImage.width,
                             height = currentImage.height,
-                            audioFile = currentSound.file,
-                            audioMimeType = currentSound.mimeType,
-                            durationMs = currentSound.durationMs,
+                            audioFile = audio?.file,
+                            audioMimeType = audio?.mimeType,
+                            durationMs = audio?.durationMs,
                             body = currentBody,
                         ).onFailure { Timber.w(it, "Unable to save the sticker to My stickers") }
                     }
                 }
                 navigateUp()
             }.onFailure {
-                Timber.w(it, "Unable to send the sound sticker")
+                Timber.w(it, "Unable to send the sticker")
                 isSending = false
                 errorMessage = R.string.screen_sound_sticker_creator_error_send
             }
@@ -180,6 +287,7 @@ class SoundStickerCreatorPresenter(
         DisposableEffect(Unit) {
             onDispose {
                 previewPlayer.stop()
+                processingJob?.cancel()
                 if (latestRecorderState is VoiceRecorderState.Recording) {
                     sessionCoroutineScope.launch {
                         runCatchingExceptions { voiceRecorder.stopRecord(cancelled = true) }
@@ -188,9 +296,15 @@ class SoundStickerCreatorPresenter(
             }
         }
 
-        val galleryImagePicker = mediaPickerProvider.registerGalleryImagePicker { uri ->
+        val mediaPicker = mediaPickerProvider.registerGalleryPicker { uri, mimeType ->
             if (uri != null) {
-                localCoroutineScope.launch { readImage(uri) }
+                startProcessing {
+                    if (mimeType?.startsWith("video/") == true) {
+                        readVideo(uri)
+                    } else {
+                        readImage(uri)
+                    }
+                }
             }
         }
         val audioPicker = mediaPickerProvider.registerFilePicker(MimeTypes.Audio) { uri, _ ->
@@ -201,8 +315,15 @@ class SoundStickerCreatorPresenter(
 
         fun handleEvent(event: SoundStickerCreatorEvent) {
             when (event) {
-                SoundStickerCreatorEvent.PickImage -> galleryImagePicker.launch()
-                SoundStickerCreatorEvent.PickAudio -> audioPicker.launch()
+                SoundStickerCreatorEvent.PickMedia -> mediaPicker.launch()
+                is SoundStickerCreatorEvent.SetVideoStartPosition -> {
+                    val currentVideo = video ?: return
+                    video = currentVideo.copy(startMs = event.positionMs.coerceIn(0, currentVideo.maxStartMs))
+                }
+                SoundStickerCreatorEvent.ConfirmVideoStartPosition -> {
+                    val currentVideo = video ?: return
+                    startProcessing { prepareVideoWindow(currentVideo, currentVideo.startMs) }
+                }
                 SoundStickerCreatorEvent.StartRecording -> {
                     if (permissionsState.permissionGranted) {
                         localCoroutineScope.launch { startRecording() }
@@ -214,6 +335,7 @@ class SoundStickerCreatorPresenter(
                 SoundStickerCreatorEvent.StopRecording -> localCoroutineScope.launch {
                     runCatchingExceptions { voiceRecorder.stopRecord() }
                 }
+                SoundStickerCreatorEvent.PickAudio -> audioPicker.launch()
                 SoundStickerCreatorEvent.ToggleSoundPreview -> {
                     val currentSound = sound ?: return
                     if (isPlayingSound) {
@@ -222,14 +344,27 @@ class SoundStickerCreatorPresenter(
                         localCoroutineScope.launch { previewPlayer.play(currentSound.file, currentSound.mimeType) }
                     }
                 }
+                is SoundStickerCreatorEvent.SetUseVideoSound -> {
+                    if (event.enabled) {
+                        previewPlayer.stop()
+                        sound = null
+                        isUsingVideoSound = true
+                    } else {
+                        isUsingVideoSound = false
+                    }
+                }
+                SoundStickerCreatorEvent.RemoveSound -> {
+                    previewPlayer.stop()
+                    sound = null
+                    isUsingVideoSound = false
+                }
                 is SoundStickerCreatorEvent.SetBody -> body = event.body
                 is SoundStickerCreatorEvent.SetSaveToMyStickers -> saveToMyStickers = event.enabled
                 SoundStickerCreatorEvent.Send -> {
                     val currentImage = image ?: return
-                    val currentSound = sound ?: return
-                    if (!isSending) {
+                    if (!isSending && !isPreparingAnimation) {
                         localCoroutineScope.launch {
-                            sendSticker(currentImage, currentSound, body.ifBlank { DEFAULT_BODY }, saveToMyStickers)
+                            sendSticker(currentImage, body.ifBlank { DEFAULT_BODY }, saveToMyStickers)
                         }
                     }
                 }
@@ -241,7 +376,11 @@ class SoundStickerCreatorPresenter(
         val recordingElapsed = (recorderState as? VoiceRecorderState.Recording)?.elapsedTime ?: Duration.ZERO
         return SoundStickerCreatorState(
             image = image,
+            isPreparingAnimation = isPreparingAnimation,
+            preparationProgress = preparationProgress,
+            video = video,
             sound = sound,
+            isUsingVideoSound = isUsingVideoSound,
             isRecording = recorderState is VoiceRecorderState.Recording,
             recordingElapsed = recordingElapsed,
             isPlayingSound = isPlayingSound,

@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewParameter
@@ -43,8 +44,11 @@ import io.element.android.libraries.designsystem.components.dialogs.AlertDialog
 import io.element.android.libraries.designsystem.preview.ElementPreview
 import io.element.android.libraries.designsystem.preview.PreviewsDayNight
 import io.element.android.libraries.designsystem.theme.components.Button
+import io.element.android.libraries.designsystem.theme.components.CircularProgressIndicator
 import io.element.android.libraries.designsystem.theme.components.Icon
+import io.element.android.libraries.designsystem.theme.components.LinearProgressIndicator
 import io.element.android.libraries.designsystem.theme.components.Scaffold
+import io.element.android.libraries.designsystem.theme.components.Slider
 import io.element.android.libraries.designsystem.theme.components.Text
 import io.element.android.libraries.designsystem.theme.components.TextButton
 import io.element.android.libraries.designsystem.theme.components.TextField
@@ -77,7 +81,16 @@ fun SoundStickerCreatorView(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            StickerImagePicker(image = state.image, onClick = { state.eventSink(SoundStickerCreatorEvent.PickImage) })
+            StickerMediaPreview(
+                image = state.image,
+                video = state.video,
+                isPreparing = state.isPreparingAnimation,
+                progress = state.preparationProgress,
+                onClick = { state.eventSink(SoundStickerCreatorEvent.PickMedia) },
+            )
+            if (state.canChooseVideoStart) {
+                VideoStartSection(state = state)
+            }
             StickerSoundSection(state = state)
             TextField(
                 value = state.body,
@@ -124,11 +137,14 @@ fun SoundStickerCreatorView(
 }
 
 @Composable
-private fun StickerImagePicker(
+private fun StickerMediaPreview(
     image: StickerImage?,
+    video: StickerVideo?,
+    isPreparing: Boolean,
+    progress: Float,
     onClick: () -> Unit,
 ) {
-    val description = stringResource(R.string.screen_sound_sticker_creator_image_description)
+    val description = stringResource(R.string.screen_sound_sticker_creator_media_description)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -136,26 +152,77 @@ private fun StickerImagePicker(
             .aspectRatio(1f)
             .clip(RoundedCornerShape(16.dp))
             .background(ElementTheme.colors.bgSubtleSecondary)
-            .clickable(onClickLabel = stringResource(R.string.screen_sound_sticker_creator_change_image), onClick = onClick),
+            .clickable(onClickLabel = stringResource(R.string.screen_sound_sticker_creator_change_media), onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (image == null) {
+        val previewFile = image?.file ?: video?.thumbnailFile
+        if (previewFile == null) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(imageVector = CompoundIcons.Image(), contentDescription = null, tint = ElementTheme.colors.iconSecondary)
                 Text(
-                    text = stringResource(R.string.screen_sound_sticker_creator_choose_image),
+                    text = stringResource(R.string.screen_sound_sticker_creator_choose_media),
                     style = ElementTheme.typography.fontBodyMdRegular,
                     color = ElementTheme.colors.textSecondary,
                 )
             }
         } else {
             AsyncImage(
-                model = File(image.file.absolutePath),
+                model = File(previewFile.absolutePath),
                 contentDescription = description,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
         }
+        if (isPreparing) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(24.dp),
+                ) {
+                    if (progress > 0f) {
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth(0.7f),
+                        )
+                    } else {
+                        CircularProgressIndicator()
+                    }
+                    Text(
+                        text = stringResource(R.string.screen_sound_sticker_creator_preparing),
+                        style = ElementTheme.typography.fontBodyMdRegular,
+                        color = Color.White,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VideoStartSection(state: SoundStickerCreatorState) {
+    val video = state.video ?: return
+    val maxStartSeconds = video.maxStartMs / 1000f
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = stringResource(
+                R.string.screen_sound_sticker_creator_video_start,
+                (video.startMs / 1000).toInt(),
+            ),
+            style = ElementTheme.typography.fontBodyMdRegular,
+        )
+        Slider(
+            value = (video.startMs / 1000f).coerceIn(0f, maxStartSeconds),
+            onValueChange = { state.eventSink(SoundStickerCreatorEvent.SetVideoStartPosition((it * 1000).toLong())) },
+            valueRange = 0f..maxStartSeconds.coerceAtLeast(1f),
+            onValueChangeFinish = { state.eventSink(SoundStickerCreatorEvent.ConfirmVideoStartPosition) },
+            enabled = !state.isPreparingAnimation,
+        )
     }
 }
 
@@ -166,6 +233,23 @@ private fun StickerSoundSection(state: SoundStickerCreatorState) {
             text = stringResource(R.string.screen_sound_sticker_creator_sound_section),
             style = ElementTheme.typography.fontHeadingSmMedium,
         )
+        if (state.showVideoSoundOption) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { state.eventSink(SoundStickerCreatorEvent.SetUseVideoSound(!state.isUsingVideoSound)) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(
+                    checked = state.isUsingVideoSound,
+                    onCheckedChange = { state.eventSink(SoundStickerCreatorEvent.SetUseVideoSound(it)) },
+                )
+                Text(
+                    text = stringResource(R.string.screen_sound_sticker_creator_use_video_sound),
+                    style = ElementTheme.typography.fontBodyMdRegular,
+                )
+            }
+        }
         when {
             state.isRecording -> {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -201,29 +285,30 @@ private fun StickerSoundSection(state: SoundStickerCreatorState) {
                         ),
                         onClick = { state.eventSink(SoundStickerCreatorEvent.ToggleSoundPreview) },
                     )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(
-                        text = stringResource(R.string.screen_sound_sticker_creator_record),
-                        onClick = { state.eventSink(SoundStickerCreatorEvent.StartRecording) },
-                    )
-                    TextButton(
-                        text = stringResource(R.string.screen_sound_sticker_creator_pick_audio),
-                        onClick = { state.eventSink(SoundStickerCreatorEvent.PickAudio) },
+                        text = stringResource(R.string.screen_sound_sticker_creator_remove_sound),
+                        onClick = { state.eventSink(SoundStickerCreatorEvent.RemoveSound) },
                     )
                 }
             }
-            else -> {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        text = stringResource(R.string.screen_sound_sticker_creator_record),
-                        onClick = { state.eventSink(SoundStickerCreatorEvent.StartRecording) },
-                    )
-                    TextButton(
-                        text = stringResource(R.string.screen_sound_sticker_creator_pick_audio),
-                        onClick = { state.eventSink(SoundStickerCreatorEvent.PickAudio) },
-                    )
-                }
+            state.isUsingVideoSound -> {
+                Text(
+                    text = stringResource(R.string.screen_sound_sticker_creator_video_sound_selected),
+                    style = ElementTheme.typography.fontBodySmRegular,
+                    color = ElementTheme.colors.textSecondary,
+                )
+            }
+        }
+        if (!state.isRecording) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    text = stringResource(R.string.screen_sound_sticker_creator_record),
+                    onClick = { state.eventSink(SoundStickerCreatorEvent.StartRecording) },
+                )
+                TextButton(
+                    text = stringResource(R.string.screen_sound_sticker_creator_pick_audio),
+                    onClick = { state.eventSink(SoundStickerCreatorEvent.PickAudio) },
+                )
             }
         }
     }

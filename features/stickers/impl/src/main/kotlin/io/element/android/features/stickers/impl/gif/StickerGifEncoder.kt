@@ -104,15 +104,15 @@ internal class StickerGifEncoder(
     private fun writeColorTable(palette: GifPalette) {
         for (index in 0 until MAX_COLORS) {
             val color = palette.colors.getOrElse(index) { 0 }
-            output.write((color shr 16) and 0xFF)
-            output.write((color shr 8) and 0xFF)
+            output.write(color shr 16 and 0xFF)
+            output.write(color shr 8 and 0xFF)
             output.write(color and 0xFF)
         }
     }
 
     private fun writeShort(value: Int) {
         output.write(value and 0xFF)
-        output.write((value shr 8) and 0xFF)
+        output.write(value shr 8 and 0xFF)
     }
 
     private companion object {

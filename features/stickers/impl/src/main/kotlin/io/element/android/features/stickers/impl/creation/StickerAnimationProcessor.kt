@@ -17,8 +17,8 @@ import dev.zacsweers.metro.ContributesBinding
 import io.element.android.features.stickers.api.StickerImage
 import io.element.android.features.stickers.impl.gif.GifEncodingStep
 import io.element.android.features.stickers.impl.gif.StickerGifEncoder
-import io.element.android.features.stickers.impl.gif.firstResultWithinBudget
 import io.element.android.features.stickers.impl.gif.StickerGifEncodingPlan
+import io.element.android.features.stickers.impl.gif.firstResultWithinBudget
 import io.element.android.libraries.core.coroutine.CoroutineDispatchers
 import io.element.android.libraries.core.extensions.runCatchingExceptions
 import io.element.android.libraries.core.mimetype.MimeTypes
@@ -201,7 +201,7 @@ class DefaultStickerAnimationProcessor(
         )
     }
 
-    private class EncodedAnimation(
+    private data class EncodedAnimation(
         val bytes: ByteArray,
         val width: Int,
         val height: Int,

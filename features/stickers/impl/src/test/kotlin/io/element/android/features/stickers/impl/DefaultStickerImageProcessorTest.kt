@@ -9,8 +9,8 @@ package io.element.android.features.stickers.impl
 
 import android.graphics.Bitmap
 import com.google.common.truth.Truth.assertThat
-import io.element.android.libraries.core.mimetype.MimeTypes
 import io.element.android.features.stickers.test.FakeStickerAnimationProcessor
+import io.element.android.libraries.core.mimetype.MimeTypes
 import io.element.android.tests.testutils.robolectric.RobolectricTest
 import io.element.android.tests.testutils.testCoroutineDispatchers
 import kotlinx.coroutines.test.TestScope

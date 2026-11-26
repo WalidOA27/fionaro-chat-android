@@ -8,6 +8,7 @@
 package io.element.android.features.stickers.impl.gif
 
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class StickerGifEncoderTest {
@@ -73,10 +74,10 @@ class StickerGifEncoderTest {
         val encoder = StickerGifEncoder(width = width, height = height)
         // 8 * 8 * 4 colors, each channel value on a 5 bits boundary so quantization keeps it exact.
         val distinctPixels = IntArray(width * height) { index ->
-            val red = ((index % 8) * 8) shl 16
-            val green = (((index / 8) % 8) * 8) shl 8
-            val blue = ((index / 64) % 4) * 8
-            (0xFF shl 24) or red or green or blue
+            val red = index % 8 * 8
+            val green = index / 8 % 8 * 8
+            val blue = index / 64 % 4 * 8
+            0xFF shl 24 or (red shl 16) or (green shl 8) or blue
         }
 
         encoder.addFrame(distinctPixels, delayCentiseconds = 8)
@@ -109,9 +110,9 @@ class StickerGifEncoderTest {
     fun `encode - rejects a frame with the wrong pixel count`() {
         val encoder = StickerGifEncoder(width = 4, height = 4)
 
-        val result = runCatching { encoder.addFrame(IntArray(3), delayCentiseconds = 8) }
-
-        assertThat(result.exceptionOrNull()).isInstanceOf(IllegalArgumentException::class.java)
+        assertThrows(IllegalArgumentException::class.java) {
+            encoder.addFrame(IntArray(3), delayCentiseconds = 8)
+        }
     }
 
     private fun solidFrame(width: Int, height: Int, color: Int) = IntArray(width * height) { color }

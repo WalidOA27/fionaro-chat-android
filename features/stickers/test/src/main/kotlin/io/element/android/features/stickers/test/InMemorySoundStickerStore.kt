@@ -81,8 +81,8 @@ fun aSoundSticker(
     width = 512,
     height = 512,
     audioPath = audioPath,
-    audioMimeType = if (audioPath == null) null else "audio/ogg",
-    durationMs = if (audioPath == null) null else 3200,
+    audioMimeType = audioPath?.let { "audio/ogg" },
+    durationMs = audioPath?.let { 3200L },
     body = body,
     createdAt = 0,
 )
