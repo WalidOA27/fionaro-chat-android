@@ -86,7 +86,6 @@ import io.element.android.services.analytics.api.AnalyticsService
 import io.element.android.services.analyticsproviders.api.trackers.captureInteraction
 import io.element.android.wysiwyg.compose.RichTextEditorState
 import io.element.android.wysiwyg.display.TextDisplay
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -177,8 +176,8 @@ class MessageComposerPresenter(
             canShareLocation.value = locationService.isServiceAvailable()
         }
 
-        val galleryMediaPicker = mediaPickerProvider.registerGalleryPicker { uri, mimeType ->
-            handlePickedMedia(uri, mimeType)
+        val galleryMediaPicker = mediaPickerProvider.registerGalleryMultiPicker { uris ->
+            handlePickedMedias(uris)
         }
         val filesPicker = mediaPickerProvider.registerFilePicker(AnyMimeTypes) { uri, mimeType ->
             handlePickedMedia(uri, mimeType ?: MimeTypes.OctetStream, sendAsFile = true)
@@ -609,15 +608,26 @@ class MessageComposerPresenter(
         sendAsFile: Boolean = false,
     ) {
         uri ?: return
-        val localMedia = localMediaFactory.createFromUri(
-            uri = uri,
-            mimeType = mimeType,
-            name = null,
-            formattedFileSize = null
-        )
-        val mediaAttachment = Attachment.Media(localMedia, sendAsFile = sendAsFile)
+        handlePickedMedias(listOf(uri), mimeType = mimeType, sendAsFile = sendAsFile)
+    }
+
+    private fun handlePickedMedias(
+        uris: List<Uri>,
+        mimeType: String? = null,
+        sendAsFile: Boolean = false,
+    ) {
+        if (uris.isEmpty()) return
+        val mediaAttachments = uris.map { uri ->
+            val localMedia = localMediaFactory.createFromUri(
+                uri = uri,
+                mimeType = mimeType,
+                name = null,
+                formattedFileSize = null
+            )
+            Attachment.Media(localMedia, sendAsFile = sendAsFile)
+        }
         val inReplyToEventId = (messageComposerContext.composerMode as? MessageComposerMode.Reply)?.eventId
-        navigator.navigateToPreviewAttachments(persistentListOf(mediaAttachment), inReplyToEventId)
+        navigator.navigateToPreviewAttachments(mediaAttachments.toImmutableList(), inReplyToEventId)
 
         // Reset composer since the attachment will be sent in a separate flow
         messageComposerContext.composerMode = MessageComposerMode.Normal

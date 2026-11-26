@@ -13,6 +13,8 @@ import io.element.android.features.messages.impl.attachments.preview.imageeditor
 sealed interface AttachmentsPreviewEvent {
     data object SendAttachment : AttachmentsPreviewEvent
     data object CancelAndDismiss : AttachmentsPreviewEvent
+    data class SelectAttachment(val index: Int) : AttachmentsPreviewEvent
+    data class RemoveAttachment(val index: Int) : AttachmentsPreviewEvent
     data object CancelAndClearSendState : AttachmentsPreviewEvent
     data object OpenImageEditor : AttachmentsPreviewEvent
     data object CloseImageEditor : AttachmentsPreviewEvent

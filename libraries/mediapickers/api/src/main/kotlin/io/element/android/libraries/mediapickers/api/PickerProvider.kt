@@ -18,6 +18,15 @@ interface PickerProvider {
         onResult: (uri: Uri?, mimeType: String?) -> Unit
     ): PickerLauncher<PickVisualMediaRequest, Uri?>
 
+    /**
+     * Remembers and returns a [PickerLauncher] allowing to pick several images and/or videos at once.
+     * [onResult] will be called with the list of selected files, possibly empty if nothing was selected.
+     */
+    @Composable
+    fun registerGalleryMultiPicker(
+        onResult: (uris: List<Uri>) -> Unit
+    ): PickerLauncher<PickVisualMediaRequest, List<Uri>>
+
     @Composable
     fun registerGalleryImagePicker(
         onResult: (Uri?) -> Unit

@@ -12,6 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -42,12 +44,16 @@ import io.element.android.libraries.matrix.api.permalink.PermalinkBuilder
 import io.element.android.libraries.matrix.api.timeline.Timeline
 import io.element.android.libraries.mediaupload.api.MediaOptimizationConfig
 import io.element.android.libraries.mediaupload.api.MediaOptimizationConfigProvider
+import io.element.android.libraries.mediaupload.api.MediaSender
 import io.element.android.libraries.mediaupload.api.MediaSenderFactory
 import io.element.android.libraries.mediaupload.api.MediaUploadInfo
 import io.element.android.libraries.mediaupload.api.allFiles
+import io.element.android.libraries.mediaviewer.api.local.LocalMedia
 import io.element.android.libraries.preferences.api.store.VideoCompressionPreset
 import io.element.android.libraries.textcomposer.model.TextEditorState
 import io.element.android.libraries.textcomposer.model.rememberMarkdownTextEditorState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -59,7 +65,7 @@ import java.io.File
 
 @AssistedInject
 class AttachmentsPreviewPresenter(
-    @Assisted private val attachment: Attachment,
+    @Assisted private val attachments: ImmutableList<Attachment>,
     @Assisted private val onDoneListener: OnDoneListener,
     @Assisted private val timelineMode: Timeline.Mode,
     @Assisted private val inReplyToEventId: EventId?,
@@ -76,30 +82,55 @@ class AttachmentsPreviewPresenter(
     @AssistedFactory
     interface Factory {
         fun create(
-            attachment: Attachment,
+            attachments: ImmutableList<Attachment>,
             timelineMode: Timeline.Mode,
             onDoneListener: OnDoneListener,
             inReplyToEventId: EventId?,
         ): AttachmentsPreviewPresenter
     }
 
-    private val mediaSender = mediaSenderFactory.create(timelineMode)
+    /**
+     * An attachment being previewed, along with the original picked media and the image edits applied to it.
+     *
+     * [id] is stable for the lifetime of the preview: it is used to keep track of the items which have already been
+     * sent, even if other items are removed from the list. Sent items cannot be removed or edited any more, so that a
+     * retry of a partially failed multi-send never sends the same media twice.
+     */
+    private data class PreviewItem(
+        val id: Int,
+        val originalMedia: LocalMedia,
+        val attachment: Attachment.Media,
+        val appliedImageEdits: AttachmentImageEdits = AttachmentImageEdits(),
+        val editedTempFile: File? = null,
+        val isSent: Boolean = false,
+    )
+
+    private val mediaSender: MediaSender = mediaSenderFactory.create(timelineMode)
 
     @Composable
     override fun present(): AttachmentsPreviewState {
         val coroutineScope = rememberCoroutineScope()
 
+        val items = remember {
+            mutableStateListOf<PreviewItem>().apply {
+                attachments.forEachIndexed { index, attachment ->
+                    val media = attachment as Attachment.Media
+                    add(PreviewItem(id = index, originalMedia = media.localMedia, attachment = media))
+                }
+            }
+        }
+        var selectedIndex by remember { mutableIntStateOf(0) }
+
         val sendActionState = remember {
             mutableStateOf<SendActionState>(SendActionState.Idle)
         }
-        val originalLocalMedia = remember { (attachment as Attachment.Media).localMedia }
-        var currentAttachment by remember { mutableStateOf(attachment) }
-        var canEditImage by remember { mutableStateOf(originalLocalMedia.info.canEditImage()) }
+        val currentItem = items.getOrNull(selectedIndex) ?: items.firstOrNull()
+        val mediaAttachment = currentItem?.attachment ?: (attachments.first() as Attachment.Media)
+
+        var canEditImage by remember { mutableStateOf(currentItem?.originalMedia?.info?.canEditImage() == true) }
         var imageEditorState by remember { mutableStateOf<AttachmentImageEditorState?>(null) }
-        var appliedImageEdits by remember { mutableStateOf(AttachmentImageEdits()) }
         var isApplyingImageEdits by remember { mutableStateOf(false) }
         var displayImageEditError by remember { mutableStateOf(false) }
-        var editedTempFile by remember { mutableStateOf<File?>(null) }
 
         val markdownTextEditorState = rememberMarkdownTextEditorState(initialText = null, initialFocus = false)
         val textEditorState by rememberUpdatedState(
@@ -110,8 +141,7 @@ class AttachmentsPreviewPresenter(
 
         var preprocessMediaJob by remember { mutableStateOf<Job?>(null) }
 
-        val mediaAttachment = currentAttachment as Attachment.Media
-        val mediaOptimizationSelectorPresenter = remember {
+        val mediaOptimizationSelectorPresenter = remember(mediaAttachment.localMedia.uri, mediaAttachment.sendAsFile) {
             mediaOptimizationSelectorPresenterFactory.create(
                 localMedia = mediaAttachment.localMedia,
                 sendAsFile = mediaAttachment.sendAsFile,
@@ -126,10 +156,13 @@ class AttachmentsPreviewPresenter(
         LaunchedEffect(
             mediaOptimizationSelectorState.displayMediaSelectorViews,
             mediaOptimizationSelectorState.videoSizeEstimations,
-            currentAttachment,
+            selectedIndex,
+            mediaAttachment,
             imageEditorState,
             isApplyingImageEdits,
         ) {
+            // Multi-selection is pre-processed item by item when sending, to keep memory usage low.
+            if (items.size > 1) return@LaunchedEffect
             // If the media optimization selector is not displayed, we can pre-process the media
             // to prepare it for sending. This is done to avoid blocking the UI thread when the
             // user clicks on the send button.
@@ -137,7 +170,8 @@ class AttachmentsPreviewPresenter(
             if (mediaOptimizationSelectorState.displayMediaSelectorViews == false &&
                 preprocessMediaJob == null &&
                 imageEditorState == null &&
-                !isApplyingImageEdits) {
+                !isApplyingImageEdits
+            ) {
                 if (mediaAttachment.localMedia.info.mimeType.isMimeTypeVideo() && mediaOptimizationSelectorState.videoSizeEstimations.dataOrNull() == null) {
                     Timber.d("Waiting for video size estimations to be able to select the best video compression preset before pre-processing the media")
                     return@LaunchedEffect
@@ -147,7 +181,7 @@ class AttachmentsPreviewPresenter(
                     mediaOptimizationSelectorState = mediaOptimizationSelectorState,
                 ) ?: return@LaunchedEffect
                 preprocessMediaJob = coroutineScope.preProcessAttachment(
-                    attachment = currentAttachment,
+                    attachment = mediaAttachment,
                     mediaOptimizationConfig = config,
                     displayProgress = false,
                     sendActionState = sendActionState,
@@ -155,12 +189,15 @@ class AttachmentsPreviewPresenter(
             }
         }
 
-        LaunchedEffect(originalLocalMedia) {
-            canEditImage = originalLocalMedia.info.canEditImage() || attachmentImageEditor.canEdit(originalLocalMedia)
+        LaunchedEffect(currentItem?.id, currentItem?.isSent, currentItem?.originalMedia) {
+            val item = currentItem ?: return@LaunchedEffect
+            // Attachments which have already been sent cannot be edited any more.
+            canEditImage = !item.isSent && (item.originalMedia.info.canEditImage() || attachmentImageEditor.canEdit(item.originalMedia))
         }
 
         val maxUploadSize = mediaOptimizationSelectorState.maxUploadSize.dataOrNull()
-        LaunchedEffect(maxUploadSize) {
+        LaunchedEffect(maxUploadSize, selectedIndex, mediaAttachment) {
+            displayFileTooLargeError = false
             // Check file upload size if the media won't be processed for upload
             val isImageFile = mediaAttachment.localMedia.info.isImageAttachment()
             val isVideoFile = mediaAttachment.localMedia.info.mimeType.isMimeTypeVideo()
@@ -174,10 +211,73 @@ class AttachmentsPreviewPresenter(
         }
 
         val videoSizeEstimations = mediaOptimizationSelectorState.videoSizeEstimations.dataOrNull()
-        LaunchedEffect(videoSizeEstimations) {
+        LaunchedEffect(videoSizeEstimations, selectedIndex) {
             if (videoSizeEstimations != null) {
                 // Check if the video size estimations are too large for the max upload size
                 displayFileTooLargeError = videoSizeEstimations.none { it.canUpload }
+            }
+        }
+
+        fun cleanupItemFiles(previewItems: List<PreviewItem>) {
+            previewItems.forEach { item ->
+                item.editedTempFile?.safeDelete()
+            }
+        }
+
+        fun markAsSent(itemId: Int) {
+            val index = items.indexOfFirst { it.id == itemId }
+            if (index != -1) {
+                items[index] = items[index].copy(isSent = true)
+            }
+        }
+
+        suspend fun sendAllItems(
+            itemsToSend: List<PreviewItem>,
+            caption: String?,
+            selectedConfig: MediaOptimizationConfig?,
+            selectorState: MediaOptimizationSelectorState,
+            alreadySentCount: Int,
+            totalCount: Int,
+        ): Unit = withContext(dispatchers.io) {
+            var sentCount = 0
+            // The caption always belongs to the last item of the whole selection, even when some items have already
+            // been sent by a previous attempt.
+            val lastItemId = items.lastOrNull()?.id
+            try {
+                while (sentCount < itemsToSend.size) {
+                    val itemToSend = itemsToSend[sentCount]
+                    mediaSender.cleanUp()
+                    val config = selectedConfig ?: getAutoPreprocessMediaOptimizationConfig(
+                        mediaAttachment = itemToSend.attachment,
+                        mediaOptimizationSelectorState = selectorState,
+                    ) ?: return@withContext
+                    val mediaUploadInfo = preProcessMediaForSending(
+                        mediaAttachment = itemToSend.attachment,
+                        mediaOptimizationConfig = config,
+                        displayProgress = true,
+                        sendActionState = sendActionState,
+                    ) ?: return@withContext
+                    val success = sendPreProcessedMedia(
+                        mediaUploadInfo = mediaUploadInfo,
+                        caption = caption.takeIf { itemToSend.id == lastItemId },
+                        sendActionState = sendActionState,
+                        dismissAfterSend = false,
+                        inReplyToEventId = inReplyToEventId,
+                        sentCount = alreadySentCount + sentCount + 1,
+                        totalCount = totalCount,
+                        updateDoneState = false,
+                    )
+                    if (!success) {
+                        return@withContext
+                    }
+                    sentCount++
+                    markAsSent(itemToSend.id)
+                }
+                cleanupItemFiles(items.toList())
+                sendActionState.value = SendActionState.Done
+                onDoneListener()
+            } finally {
+                mediaSender.cleanUp()
             }
         }
 
@@ -185,55 +285,83 @@ class AttachmentsPreviewPresenter(
             when (event) {
                 is AttachmentsPreviewEvent.SendAttachment -> {
                     ongoingSendAttachmentJob.value = coroutineScope.launch {
+                        val item = items.getOrNull(selectedIndex) ?: return@launch
+                        val selectorState = mediaOptimizationSelectorState
                         // If the media optimization selector is displayed, we need to wait for the user to select the options
                         // before we can pre-process the media.
-                        if (mediaOptimizationSelectorState.displayMediaSelectorViews == true) {
-                            val config = MediaOptimizationConfig(
-                                compressImages = mediaOptimizationSelectorState.isImageOptimizationEnabled == true,
-                                videoCompressionPreset = mediaOptimizationSelectorState.selectedVideoPreset ?: VideoCompressionPreset.STANDARD,
+                        val selectedConfig = if (selectorState.displayMediaSelectorViews == true) {
+                            MediaOptimizationConfig(
+                                compressImages = selectorState.isImageOptimizationEnabled == true,
+                                videoCompressionPreset = selectorState.selectedVideoPreset ?: VideoCompressionPreset.STANDARD,
                             )
-                            preprocessMediaJob = preProcessAttachment(
-                                attachment = currentAttachment,
-                                mediaOptimizationConfig = config,
-                                displayProgress = true,
-                                sendActionState = sendActionState,
-                            )
+                        } else {
+                            null
                         }
 
-                        // If the processing was hidden before, make it visible now
-                        if (sendActionState.value is SendActionState.Sending.Processing) {
-                            sendActionState.value = SendActionState.Sending.Processing(displayProgress = true)
+                        val isSingleAttachment = items.size == 1
+                        if (isSingleAttachment) {
+                            if (selectedConfig != null) {
+                                preprocessMediaJob = preProcessAttachment(
+                                    attachment = item.attachment,
+                                    mediaOptimizationConfig = selectedConfig,
+                                    displayProgress = true,
+                                    sendActionState = sendActionState,
+                                )
+                            }
+
+                            // If the processing was hidden before, make it visible now
+                            if (sendActionState.value is SendActionState.Sending.Processing) {
+                                sendActionState.value = SendActionState.Sending.Processing(displayProgress = true)
+                            }
                         }
 
-                        // Wait until the media is ready to be uploaded
-                        val mediaUploadInfo = observableSendState.firstInstanceOf<SendActionState.Sending.ReadyToUpload>().mediaInfo
-
-                        // Pre-processing is done, send the attachment
+                        // Pre-processing is done, send the attachment(s)
                         val caption = markdownTextEditorState.getMessageMarkdown(permalinkBuilder)
                             .takeIf { it.isNotEmpty() }
 
-                        val editedTempFileToDelete = editedTempFile
-                        editedTempFile = null
+                        if (isSingleAttachment) {
+                            // Wait until the media is ready to be uploaded
+                            val mediaUploadInfo = observableSendState
+                                .firstInstanceOf<SendActionState.Sending.ReadyToUpload>().mediaInfo
 
-                        // If we're supposed to send the media as a background job, we can dismiss this screen already
-                        if (coroutineContext.isActive) {
-                            onDoneListener()
-                        }
+                            val editedTempFileToDelete = items.firstOrNull()?.editedTempFile
 
-                        // Send the media using the session coroutine scope so it doesn't matter if this screen or the chat one are closed
-                        sessionCoroutineScope.launch(dispatchers.io) {
-                            try {
-                                sendPreProcessedMedia(
-                                    mediaUploadInfo = mediaUploadInfo,
+                            // If we're supposed to send the media as a background job, we can dismiss this screen already
+                            if (coroutineContext.isActive) {
+                                onDoneListener()
+                            }
+
+                            // Send the media using the session coroutine scope so it doesn't matter if this screen or the chat one are closed
+                            sessionCoroutineScope.launch(dispatchers.io) {
+                                try {
+                                    sendPreProcessedMedia(
+                                        mediaUploadInfo = mediaUploadInfo,
+                                        caption = caption,
+                                        sendActionState = sendActionState,
+                                        dismissAfterSend = false,
+                                        inReplyToEventId = inReplyToEventId,
+                                    )
+                                } finally {
+                                    editedTempFileToDelete?.safeDelete()
+                                    // Clean up the pre-processed media after it's been sent
+                                    mediaSender.cleanUp()
+                                }
+                            }
+                        } else {
+                            // Only send the attachments which have not been sent yet, in order.
+                            val itemsToSend = items.filterNot { it.isSent }
+                            if (itemsToSend.isEmpty()) return@launch
+                            val alreadySentCount = items.count { it.isSent }
+                            val totalCount = items.size
+                            ongoingSendAttachmentJob.value = sessionCoroutineScope.launch {
+                                sendAllItems(
+                                    itemsToSend = itemsToSend,
                                     caption = caption,
-                                    sendActionState = sendActionState,
-                                    dismissAfterSend = false,
-                                    inReplyToEventId = inReplyToEventId,
+                                    selectedConfig = selectedConfig,
+                                    selectorState = selectorState,
+                                    alreadySentCount = alreadySentCount,
+                                    totalCount = totalCount,
                                 )
-                            } finally {
-                                editedTempFileToDelete?.safeDelete()
-                                // Clean up the pre-processed media after it's been sent
-                                mediaSender.cleanUp()
                             }
                         }
                     }
@@ -251,7 +379,7 @@ class AttachmentsPreviewPresenter(
                     ongoingSendAttachmentJob.value?.cancel()
 
                     // Dismiss the screen
-                    dismiss(sendActionState, editedTempFile)
+                    dismiss(sendActionState, items.toList())
                 }
                 AttachmentsPreviewEvent.CancelAndClearSendState -> {
                     // Cancel media sending
@@ -260,22 +388,65 @@ class AttachmentsPreviewPresenter(
                         ongoingSendAttachmentJob.value = null
                     }
 
-                    val mediaUploadInfo = sendActionState.value.mediaUploadInfo()
-                    sendActionState.value = if (mediaUploadInfo != null) {
-                        SendActionState.Sending.ReadyToUpload(mediaUploadInfo)
+                    if (items.size > 1) {
+                        // Retry will send the attachments which have not been sent yet.
+                        mediaSender.cleanUp()
+                        sendActionState.value = SendActionState.Idle
                     } else {
-                        SendActionState.Idle
+                        val mediaUploadInfo = sendActionState.value.mediaUploadInfo()
+                        sendActionState.value = if (mediaUploadInfo != null) {
+                            SendActionState.Sending.ReadyToUpload(mediaUploadInfo)
+                        } else {
+                            SendActionState.Idle
+                        }
+                    }
+                }
+                is AttachmentsPreviewEvent.SelectAttachment -> {
+                    if (sendActionState.value is SendActionState.Sending.Uploading) return
+                    val newIndex = event.index.coerceIn(items.indices)
+                    if (newIndex == selectedIndex) return
+                    preprocessMediaJob?.cancel()
+                    preprocessMediaJob = null
+                    resetPreparedMedia(sendActionState)
+                    selectedIndex = newIndex
+                    imageEditorState = null
+                    displayFileTooLargeError = false
+                    displayImageEditError = false
+                }
+                is AttachmentsPreviewEvent.RemoveAttachment -> {
+                    if (sendActionState.value is SendActionState.Sending.Uploading) return
+                    val itemToRemove = items.getOrNull(event.index) ?: return
+                    // Attachments which have already been sent cannot be removed any more.
+                    if (itemToRemove.isSent) return
+                    if (items.size == 1) {
+                        // Removing the last attachment closes the screen.
+                        dismiss(sendActionState, items.toList())
+                        return
+                    }
+                    preprocessMediaJob?.cancel()
+                    preprocessMediaJob = null
+                    resetPreparedMedia(sendActionState)
+                    val removed = items.removeAt(event.index)
+                    removed.editedTempFile?.safeDelete()
+                    imageEditorState = null
+                    selectedIndex = when {
+                        event.index < selectedIndex -> selectedIndex - 1
+                        selectedIndex > items.lastIndex -> items.lastIndex
+                        else -> selectedIndex
                     }
                 }
                 AttachmentsPreviewEvent.OpenImageEditor -> {
-                    val resolvedCanEditImage = canEditImage || originalLocalMedia.info.canEditImage()
+                    val item = items.getOrNull(selectedIndex) ?: return
+                    // Attachments which have already been sent cannot be edited any more.
+                    if (item.isSent) return
+                    val resolvedCanEditImage = canEditImage || item.originalMedia.info.canEditImage()
                     if (resolvedCanEditImage) {
                         preprocessMediaJob?.cancel()
                         preprocessMediaJob = null
                         resetPreparedMedia(sendActionState)
                         imageEditorState = AttachmentImageEditorState(
-                            localMedia = originalLocalMedia,
-                            edits = appliedImageEdits,
+                            localMedia = item.originalMedia,
+                            edits = item.appliedImageEdits,
                             previewDebug = false,
                         )
                     }
@@ -314,11 +485,17 @@ class AttachmentsPreviewPresenter(
                 }
                 AttachmentsPreviewEvent.ApplyImageEdits -> {
                     val pendingState = imageEditorState ?: return
+                    val index = selectedIndex
+                    val item = items.getOrNull(index) ?: return
+                    // Attachments which have already been sent cannot be edited any more.
+                    if (item.isSent) return
                     if (!pendingState.edits.hasChanges) {
-                        editedTempFile?.safeDelete()
-                        editedTempFile = null
-                        appliedImageEdits = pendingState.edits
-                        currentAttachment = Attachment.Media(originalLocalMedia)
+                        item.editedTempFile?.safeDelete()
+                        items[index] = item.copy(
+                            attachment = Attachment.Media(item.originalMedia, sendAsFile = item.attachment.sendAsFile),
+                            appliedImageEdits = pendingState.edits,
+                            editedTempFile = null,
+                        )
                         imageEditorState = null
                         resetPreparedMedia(sendActionState)
                         return
@@ -328,16 +505,21 @@ class AttachmentsPreviewPresenter(
                     coroutineScope.launch {
                         val result = withContext(dispatchers.io) {
                             attachmentImageEditor.exportEdits(
-                                localMedia = originalLocalMedia,
+                                localMedia = item.originalMedia,
                                 edits = pendingState.edits,
                             )
                         }
                         result.fold(
                             onSuccess = { editedMedia ->
-                                editedTempFile?.safeDelete()
-                                editedTempFile = editedMedia.file
-                                appliedImageEdits = pendingState.edits
-                                currentAttachment = Attachment.Media(editedMedia.localMedia)
+                                item.editedTempFile?.safeDelete()
+                                items[index] = item.copy(
+                                    attachment = Attachment.Media(
+                                        localMedia = editedMedia.localMedia,
+                                        sendAsFile = item.attachment.sendAsFile,
+                                    ),
+                                    appliedImageEdits = pendingState.edits,
+                                    editedTempFile = editedMedia.file,
+                                )
                                 imageEditorState = null
                                 resetPreparedMedia(sendActionState)
                             },
@@ -356,7 +538,9 @@ class AttachmentsPreviewPresenter(
         }
 
         return AttachmentsPreviewState(
-            attachment = currentAttachment,
+            attachments = items.map { it.attachment }.toImmutableList(),
+            selectedIndex = selectedIndex.coerceIn(items.indices),
+            sentAttachmentIndices = items.mapIndexedNotNull { index, item -> index.takeIf { item.isSent } }.toImmutableList(),
             imageEditorState = imageEditorState,
             canEditImage = canEditImage,
             isApplyingImageEdits = isApplyingImageEdits,
@@ -415,8 +599,26 @@ class AttachmentsPreviewPresenter(
         displayProgress: Boolean,
         sendActionState: MutableState<SendActionState>,
     ) {
+        preProcessMediaForSending(
+            mediaAttachment = mediaAttachment,
+            mediaOptimizationConfig = mediaOptimizationConfig,
+            displayProgress = displayProgress,
+            sendActionState = sendActionState,
+        )
+    }
+
+    /**
+     * Pre-process the given media, updating the [sendActionState] accordingly. Returns the processed media, or `null` if
+     * the processing failed (in which case the state is set to [SendActionState.Failure]).
+     */
+    private suspend fun preProcessMediaForSending(
+        mediaAttachment: Attachment.Media,
+        mediaOptimizationConfig: MediaOptimizationConfig,
+        displayProgress: Boolean,
+        sendActionState: MutableState<SendActionState>,
+    ): MediaUploadInfo? {
         sendActionState.value = SendActionState.Sending.Processing(displayProgress = displayProgress)
-        mediaSender.preProcessMedia(
+        return mediaSender.preProcessMedia(
             uri = mediaAttachment.localMedia.uri,
             mimeType = mediaAttachment.localMedia.info.mimeType,
             mediaOptimizationConfig = mediaOptimizationConfig,
@@ -424,6 +626,7 @@ class AttachmentsPreviewPresenter(
             onSuccess = { mediaUploadInfo ->
                 Timber.d("Media ${mediaUploadInfo.file.path.orEmpty().hash()} finished processing, it's now ready to upload")
                 sendActionState.value = SendActionState.Sending.ReadyToUpload(mediaUploadInfo)
+                mediaUploadInfo
             },
             onFailure = {
                 Timber.e(it, "Failed to pre-process media")
@@ -431,6 +634,7 @@ class AttachmentsPreviewPresenter(
                     throw it
                 } else {
                     sendActionState.value = SendActionState.Failure(it, null)
+                    null
                 }
             }
         )
@@ -438,18 +642,16 @@ class AttachmentsPreviewPresenter(
 
     private fun dismiss(
         sendActionState: MutableState<SendActionState>,
-        editedTempFile: File?,
+        items: List<PreviewItem>,
     ) {
-        // Delete the temporary file
-        when (attachment) {
-            is Attachment.Media -> {
-                temporaryUriDeleter.delete(attachment.localMedia.uri)
-                sendActionState.value.mediaUploadInfo()?.let { data ->
-                    cleanUp(data)
-                }
-            }
+        // Delete the temporary files
+        items.forEach { item ->
+            temporaryUriDeleter.delete(item.attachment.localMedia.uri)
+            item.editedTempFile?.safeDelete()
         }
-        editedTempFile?.safeDelete()
+        sendActionState.value.mediaUploadInfo()?.let { data ->
+            cleanUp(data)
+        }
         // Reset the sendActionState to ensure that dialog is closed before the screen
         sendActionState.value = SendActionState.Done
         onDoneListener()
@@ -475,8 +677,11 @@ class AttachmentsPreviewPresenter(
         sendActionState: MutableState<SendActionState>,
         dismissAfterSend: Boolean,
         inReplyToEventId: EventId?,
-    ) = runCatchingExceptions {
-        sendActionState.value = SendActionState.Sending.Uploading(mediaUploadInfo)
+        sentCount: Int = 1,
+        totalCount: Int = 1,
+        updateDoneState: Boolean = true,
+    ): Boolean = runCatchingExceptions {
+        sendActionState.value = SendActionState.Sending.Uploading(mediaUploadInfo, sentCount, totalCount)
         mediaSender.sendPreProcessedMedia(
             mediaUploadInfo = mediaUploadInfo,
             caption = caption,
@@ -486,12 +691,15 @@ class AttachmentsPreviewPresenter(
     }.fold(
         onSuccess = {
             cleanUp(mediaUploadInfo)
-            // Reset the sendActionState to ensure that dialog is closed before the screen
-            sendActionState.value = SendActionState.Done
+            if (updateDoneState) {
+                // Reset the sendActionState to ensure that dialog is closed before the screen
+                sendActionState.value = SendActionState.Done
+            }
 
             if (dismissAfterSend) {
                 onDoneListener()
             }
+            true
         },
         onFailure = { error ->
             Timber.e(error, "Failed to send attachment")
@@ -499,6 +707,7 @@ class AttachmentsPreviewPresenter(
                 throw error
             } else {
                 sendActionState.value = SendActionState.Failure(error, mediaUploadInfo)
+                false
             }
         }
     )

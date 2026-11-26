@@ -55,6 +55,11 @@ class TimelineItemIndexer {
                         processEvent(event, index)
                     }
                 }
+                is TimelineItem.MediaAlbum -> {
+                    timelineItem.events.forEach { event ->
+                        processEvent(event, index)
+                    }
+                }
                 else -> Unit
             }
         }

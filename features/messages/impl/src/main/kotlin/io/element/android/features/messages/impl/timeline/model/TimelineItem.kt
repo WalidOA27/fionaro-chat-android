@@ -44,12 +44,14 @@ sealed interface TimelineItem {
         is Event -> id
         is Virtual -> id
         is GroupedEvents -> id
+        is MediaAlbum -> id
     }
 
     fun isEvent(eventId: EventId?): Boolean {
         if (eventId == null) return false
         return when (this) {
             is Event -> this.eventId == eventId
+            is MediaAlbum -> events.any { it.eventId == eventId }
             else -> false
         }
     }
@@ -58,12 +60,14 @@ sealed interface TimelineItem {
         is Event -> content.type
         is Virtual -> model.type
         is GroupedEvents -> "groupedEvent"
+        is MediaAlbum -> "mediaAlbum"
     }
 
     fun formattedDate(): String? = when (this) {
         is Event -> sentDate.takeIf { it.isNotEmpty() }
         is Virtual -> (model as? TimelineItemDaySeparatorModel)?.formattedDate?.takeIf { it.isNotEmpty() }
         is GroupedEvents -> null
+        is MediaAlbum -> null
     }
 
     data class Virtual(
@@ -146,6 +150,17 @@ sealed interface TimelineItem {
         val events: ImmutableList<Event>,
         val aggregatedReadReceipts: ImmutableList<ReadReceiptData>,
     ) : TimelineItem
+
+    /**
+     * A group of consecutive images and/or videos sent by the same user, displayed as a single album bubble.
+     * [events] are ordered chronologically, from the oldest to the most recent one.
+     */
+    data class MediaAlbum(
+        val id: UniqueId,
+        val events: ImmutableList<Event>,
+    ) : TimelineItem {
+        val lastEvent: Event get() = events.last()
+    }
 }
 
 sealed interface TimelineItemThreadInfo {

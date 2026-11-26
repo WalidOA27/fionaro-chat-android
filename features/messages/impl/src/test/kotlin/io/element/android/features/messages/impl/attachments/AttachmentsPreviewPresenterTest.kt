@@ -70,6 +70,7 @@ import io.element.android.tests.testutils.testCoroutineDispatchers
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -267,6 +268,254 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
             deleteCallback.assertions().isCalledOnce()
             onDoneListener.assertions().isCalledOnce()
             assertThat(mediaPreProcessor.cleanUpCallCount).isEqualTo(1)
+        }
+    }
+
+    @Test
+    fun `present - remove an attachment`() = runTest {
+        val firstMedia = aLocalMedia(uri = mockMediaUrl)
+        val secondMedia = aLocalMedia(uri = Uri.parse("content://second-media"))
+        val presenter = createAttachmentsPreviewPresenter(
+            localMedias = listOf(firstMedia, secondMedia),
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            assertThat(initialState.attachments).hasSize(2)
+            assertThat(initialState.selectedIndex).isEqualTo(0)
+
+            initialState.eventSink(AttachmentsPreviewEvent.RemoveAttachment(0))
+
+            val state = awaitItem()
+            assertThat(state.attachments).hasSize(1)
+            assertThat(state.selectedIndex).isEqualTo(0)
+            assertThat((state.currentAttachment as Attachment.Media).localMedia.uri).isEqualTo(secondMedia.uri)
+        }
+    }
+
+    @Test
+    fun `present - removing the last attachment closes the screen`() = runTest {
+        val onDoneListener = lambdaRecorder<Unit> { }
+        val presenter = createAttachmentsPreviewPresenter(
+            temporaryUriDeleter = FakeTemporaryUriDeleter { },
+            onDoneListener = { onDoneListener() },
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.eventSink(AttachmentsPreviewEvent.RemoveAttachment(0))
+            assertThat(awaitItem().sendActionState).isEqualTo(SendActionState.Done)
+            onDoneListener.assertions().isCalledOnce()
+        }
+    }
+
+    @Test
+    fun `present - select another attachment`() = runTest {
+        val firstMedia = aLocalMedia(uri = mockMediaUrl)
+        val secondMedia = aLocalMedia(uri = Uri.parse("content://second-media"))
+        val presenter = createAttachmentsPreviewPresenter(
+            localMedias = listOf(firstMedia, secondMedia),
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.eventSink(AttachmentsPreviewEvent.SelectAttachment(1))
+            val state = awaitItem()
+            assertThat(state.selectedIndex).isEqualTo(1)
+            assertThat((state.currentAttachment as Attachment.Media).localMedia.uri).isEqualTo(secondMedia.uri)
+        }
+    }
+
+    @Test
+    fun `present - send all attachments with caption only on the last one`() = runTest {
+        val captions = mutableListOf<String?>()
+        val sendFileResult =
+            lambdaRecorder<File, FileInfo, String?, String?, EventId?, Result<FakeMediaUploadHandler>> { _, _, caption, _, _ ->
+                captions.add(caption)
+                Result.success(FakeMediaUploadHandler())
+            }
+        val room = FakeJoinedRoom(
+            liveTimeline = FakeTimeline().apply {
+                sendFileLambda = sendFileResult
+            },
+        )
+        val onDoneListener = lambdaRecorder<Unit> { }
+        val presenter = createAttachmentsPreviewPresenter(
+            room = room,
+            localMedias = listOf(
+                aLocalMedia(uri = mockMediaUrl),
+                aLocalMedia(uri = Uri.parse("content://second-media")),
+                aLocalMedia(uri = Uri.parse("content://third-media")),
+            ),
+            onDoneListener = { onDoneListener() },
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.textEditorState.setMarkdown(A_CAPTION)
+            initialState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+
+            val states = consumeItemsUntilPredicate { it.sendActionState == SendActionState.Done }
+            assertThat(
+                states.any {
+                    it.sendActionState == SendActionState.Sending.Uploading(mediaUploadInfo, sentCount = 2, totalCount = 3)
+                }
+            ).isTrue()
+            assertThat(captions).containsExactly(null, null, A_CAPTION).inOrder()
+            sendFileResult.assertions().isCalledExactly(3)
+            onDoneListener.assertions().isCalledOnce()
+        }
+    }
+
+    @Test
+    fun `present - sending stops on failure and retry only sends the remaining attachments`() = runTest {
+        val captions = mutableListOf<String?>()
+        var callCount = 0
+        val room = FakeJoinedRoom(
+            liveTimeline = FakeTimeline().apply {
+                sendFileLambda = { _, _, caption, _, _ ->
+                    callCount++
+                    captions.add(caption)
+                    if (callCount == 2) {
+                        Result.failure(RuntimeException("Failed to send"))
+                    } else {
+                        Result.success(FakeMediaUploadHandler())
+                    }
+                }
+            },
+        )
+        val onDoneListener = lambdaRecorder<Unit> { }
+        val presenter = createAttachmentsPreviewPresenter(
+            room = room,
+            localMedias = listOf(
+                aLocalMedia(uri = mockMediaUrl),
+                aLocalMedia(uri = Uri.parse("content://second-media")),
+                aLocalMedia(uri = Uri.parse("content://third-media")),
+            ),
+            onDoneListener = { onDoneListener() },
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.textEditorState.setMarkdown(A_CAPTION)
+            initialState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+
+            val failedState = consumeItemsUntilPredicate {
+                it.sendActionState is SendActionState.Failure
+            }.last()
+            // The first attachment has been sent, then the second one failed.
+            assertThat(failedState.attachments).hasSize(3)
+            onDoneListener.assertions().isCalledExactly(0)
+
+            // Retry: only the attachments which have not been sent yet are sent again, caption is on the last one.
+            failedState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+            consumeItemsUntilPredicate { it.sendActionState == SendActionState.Done }
+            // Caption is only attached to the last attachment of the selection.
+            assertThat(captions.filterNotNull()).containsExactly(A_CAPTION)
+            onDoneListener.assertions().isCalledOnce()
+        }
+    }
+
+    @Test
+    fun `present - swiping after a partial failure does not resend the attachments which were already sent`() = runTest {
+        val captions = mutableListOf<String?>()
+        var callCount = 0
+        val room = FakeJoinedRoom(
+            liveTimeline = FakeTimeline().apply {
+                sendFileLambda = { _, _, caption, _, _ ->
+                    callCount++
+                    captions.add(caption)
+                    if (callCount == 4) {
+                        Result.failure(RuntimeException("Failed to send"))
+                    } else {
+                        Result.success(FakeMediaUploadHandler())
+                    }
+                }
+            },
+        )
+        val onDoneListener = lambdaRecorder<Unit> { }
+        val presenter = createAttachmentsPreviewPresenter(
+            room = room,
+            localMedias = List(5) { aLocalMedia(uri = Uri.parse("content://media-$it")) },
+            onDoneListener = { onDoneListener() },
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.textEditorState.setMarkdown(A_CAPTION)
+            initialState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+
+            val failedState = consumeItemsUntilPredicate {
+                it.sendActionState is SendActionState.Failure
+            }.last()
+            // The first three attachments have been sent, the fourth one failed.
+            assertThat(callCount).isEqualTo(4)
+            onDoneListener.assertions().isCalledExactly(0)
+
+            // Moving to another attachment must not reset the send progress.
+            failedState.eventSink(AttachmentsPreviewEvent.SelectAttachment(4))
+            consumeItemsUntilPredicate { it.selectedIndex == 4 }.last()
+
+            failedState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+            consumeItemsUntilPredicate { it.sendActionState == SendActionState.Done }
+            // Marking the last items as sent can trigger a final state update (e.g. `canEditImage`).
+            cancelAndIgnoreRemainingEvents()
+
+            // Only the fourth (retried) and the fifth attachments are sent again.
+            assertThat(callCount).isEqualTo(6)
+            // The caption is only attached to the last attachment of the whole selection.
+            assertThat(captions).containsExactly(null, null, null, null, null, A_CAPTION).inOrder()
+            onDoneListener.assertions().isCalledOnce()
+        }
+    }
+
+    @Test
+    fun `present - removing an unsent attachment after a partial failure does not resend the sent ones`() = runTest {
+        val captions = mutableListOf<String?>()
+        var callCount = 0
+        val room = FakeJoinedRoom(
+            liveTimeline = FakeTimeline().apply {
+                sendFileLambda = { _, _, caption, _, _ ->
+                    callCount++
+                    captions.add(caption)
+                    if (callCount == 2) {
+                        Result.failure(RuntimeException("Failed to send"))
+                    } else {
+                        Result.success(FakeMediaUploadHandler())
+                    }
+                }
+            },
+        )
+        val onDoneListener = lambdaRecorder<Unit> { }
+        val presenter = createAttachmentsPreviewPresenter(
+            room = room,
+            localMedias = List(4) { aLocalMedia(uri = Uri.parse("content://media-$it")) },
+            onDoneListener = { onDoneListener() },
+        )
+        presenter.test {
+            val initialState = awaitItem()
+            initialState.textEditorState.setMarkdown(A_CAPTION)
+            initialState.eventSink(AttachmentsPreviewEvent.SendAttachment)
+
+            val failedState = consumeItemsUntilPredicate {
+                it.sendActionState is SendActionState.Failure
+            }.last()
+            // The first attachment has been sent, the second one failed.
+            assertThat(callCount).isEqualTo(2)
+
+            // Sent attachments cannot be removed any more.
+            failedState.eventSink(AttachmentsPreviewEvent.RemoveAttachment(0))
+            expectNoEvents()
+
+            // Removing an unsent attachment must not reset the send progress either.
+            failedState.eventSink(AttachmentsPreviewEvent.RemoveAttachment(3))
+            val stateAfterRemoval = consumeItemsUntilPredicate { it.attachments.size == 3 }.last()
+            assertThat(callCount).isEqualTo(2)
+
+            stateAfterRemoval.eventSink(AttachmentsPreviewEvent.SendAttachment)
+            consumeItemsUntilPredicate { it.sendActionState == SendActionState.Done }
+            // Marking the last items as sent can trigger a final state update (e.g. `canEditImage`).
+            cancelAndIgnoreRemainingEvents()
+
+            // Only the failed second attachment and the (previously third) remaining one are sent again.
+            assertThat(callCount).isEqualTo(4)
+            // The caption is only attached to the last attachment of the whole (remaining) selection.
+            assertThat(captions).containsExactly(null, null, null, A_CAPTION).inOrder()
+            onDoneListener.assertions().isCalledOnce()
         }
     }
 
@@ -584,7 +833,7 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
             assertThat(awaitItem().isApplyingImageEdits).isTrue()
 
             val appliedState = awaitItem()
-            assertThat((appliedState.attachment as Attachment.Media).localMedia.uri).isEqualTo(editedUri)
+            assertThat((appliedState.currentAttachment as Attachment.Media).localMedia.uri).isEqualTo(editedUri)
             assertThat(appliedState.imageEditorState).isNull()
             assertThat(appliedState.isApplyingImageEdits).isFalse()
         }
@@ -629,7 +878,7 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
             flippedState.eventSink(AttachmentsPreviewEvent.ApplyImageEdits)
 
             val appliedState = consumeItemsUntilPredicate { !it.isApplyingImageEdits && it.imageEditorState == null }.last()
-            assertThat((appliedState.attachment as Attachment.Media).localMedia.uri).isEqualTo(editedUri)
+            assertThat((appliedState.currentAttachment as Attachment.Media).localMedia.uri).isEqualTo(editedUri)
 
             appliedState.eventSink(AttachmentsPreviewEvent.OpenImageEditor)
             val reopenedState = consumeItemsUntilPredicate { it.imageEditorState != null }.last()
@@ -867,6 +1116,7 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
         localMedia: LocalMedia = aLocalMedia(
             uri = mockMediaUrl,
         ),
+        localMedias: List<LocalMedia> = listOf(localMedia),
         sendAsFile: Boolean = false,
         room: JoinedRoom = FakeJoinedRoom(),
         timelineMode: Timeline.Mode = Timeline.Mode.Live,
@@ -900,7 +1150,7 @@ class AttachmentsPreviewPresenterTest : RobolectricTest() {
         videoCompressionPresetSelector: VideoCompressionPresetSelector = VideoCompressionPresetSelector(),
     ): AttachmentsPreviewPresenter {
         return AttachmentsPreviewPresenter(
-            attachment = aMediaAttachment(localMedia, sendAsFile = sendAsFile),
+            attachments = localMedias.map { aMediaAttachment(it, sendAsFile = sendAsFile) }.toImmutableList(),
             onDoneListener = onDoneListener,
             mediaSenderFactory = MediaSenderFactory { timelineMode ->
                 DefaultMediaSender(

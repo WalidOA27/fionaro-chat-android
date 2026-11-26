@@ -25,6 +25,13 @@ class PickerTypeTest : RobolectricTest() {
     }
 
     @Test
+    fun `MultipleImageAndVideo - assert types`() {
+        val pickerType = PickerType.MultipleImageAndVideo()
+        assertThat(pickerType.getContract()).isInstanceOf(ActivityResultContracts.PickMultipleVisualMedia::class.java)
+        assertThat(pickerType.getDefaultRequest().mediaType).isEqualTo(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+    }
+
+    @Test
     fun `File - assert types`() {
         val pickerType = PickerType.File()
         assertThat(pickerType.getContract()).isInstanceOf(ActivityResultContracts.GetContent::class.java)

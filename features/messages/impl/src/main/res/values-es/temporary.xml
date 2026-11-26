@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+  <string name="screen_media_upload_preview_sending_progress">"Enviando %1$d de %2$d"</string>
+</resources>

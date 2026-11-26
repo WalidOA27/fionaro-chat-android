@@ -27,10 +27,11 @@ open class TimelineItemVideoContentProvider : PreviewParameterProvider<TimelineI
 fun aTimelineItemVideoContent(
     aspectRatio: Float = 0.5f,
     blurhash: String? = A_BLUR_HASH,
+    caption: String? = null,
 ) = TimelineItemVideoContent(
     filename = "Video.mp4",
     fileSize = 14 * 1024 * 1024L,
-    caption = null,
+    caption = caption,
     formattedCaption = null,
     isEdited = false,
     thumbnailSource = null,
