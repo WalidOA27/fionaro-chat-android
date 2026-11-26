@@ -266,8 +266,20 @@ private class VideoAnimationSource(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && setup.frameCount > 1 && setup.durationMs > 0) {
             val indices = VideoFrameIndices.sourceIndices(setup.frameCount, setup.durationMs, startMs, durationMs, framesPerSecond)
             if (indices.isNotEmpty()) {
-                readIndexedFrames(indices, onFrame)
-                return
+                var emitted = false
+                try {
+                    readIndexedFrames(indices) { index, bitmap ->
+                        emitted = true
+                        onFrame(index, bitmap)
+                    }
+                    return
+                } catch (exception: CancellationException) {
+                    throw exception
+                } catch (exception: RuntimeException) {
+                    // Some codecs advertise a frame count that getFramesAtIndex cannot honour.
+                    // Time based extraction can still succeed when nothing has been encoded yet.
+                    if (emitted) throw exception
+                }
             }
         }
         readTimedFrames(durationMs, framesPerSecond, onFrame)
