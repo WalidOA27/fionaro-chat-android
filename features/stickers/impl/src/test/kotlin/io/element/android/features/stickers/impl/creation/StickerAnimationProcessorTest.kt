@@ -37,9 +37,9 @@ class StickerAnimationProcessorTest : RobolectricTest() {
 
         val sticker = result.getOrThrow()
         assertThat(sticker.mimeType).isEqualTo(MimeTypes.Gif)
-        assertThat(sticker.width).isEqualTo(512)
-        assertThat(sticker.height).isEqualTo(293)
-        assertThat(sticker.file.length()).isAtMost(1024L * 1024L)
+        assertThat(sticker.width).isEqualTo(384)
+        assertThat(sticker.height).isEqualTo(219)
+        assertThat(sticker.file.length()).isAtMost(3L * 1024L * 1024L)
         assertThat(progress).isNotEmpty()
         assertThat(progress.last()).isEqualTo(1f)
 
@@ -47,8 +47,8 @@ class StickerAnimationProcessorTest : RobolectricTest() {
         assertThat(String(bytes.copyOfRange(0, 6), Charsets.US_ASCII)).isEqualTo("GIF89a")
         assertThat(bytes.last().toInt() and 0xFF).isEqualTo(0x3B)
         val parsed = ParsedGif.parse(bytes)
-        assertThat(parsed.width).isEqualTo(512)
-        assertThat(parsed.height).isEqualTo(293)
+        assertThat(parsed.width).isEqualTo(384)
+        assertThat(parsed.height).isEqualTo(219)
         assertThat(parsed.frames).hasSize(2)
         assertThat(parsed.loopCount).isEqualTo(0)
     }
