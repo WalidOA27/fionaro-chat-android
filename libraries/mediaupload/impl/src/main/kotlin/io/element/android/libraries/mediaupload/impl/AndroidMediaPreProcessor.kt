@@ -60,12 +60,17 @@ class AndroidMediaPreProcessor(
 ) : MediaPreProcessor {
     companion object {
         /**
-         * Used for calculating `inSampleSize` for bitmaps.
-         *
-         * *Note*: Ideally, this should result in images of up to (but not included) 1280x1280 being sent. However, images with very different width and height
-         * values may surpass this limit. (i.e.: an image of `480x3000px` would have `inSampleSize=1` and be sent as is).
+         * Maximum length of the longest side of a photo sent with image optimisation enabled. It matches what other
+         * messaging apps send and still looks good on high density screens.
          */
-        private const val IMAGE_SCALE_REF_SIZE = 640
+        private const val PHOTO_MAX_LONGEST_SIDE = 1600
+        private const val PHOTO_JPEG_QUALITY = 80
+
+        /**
+         * Screenshots contain text, so they are kept sharper than photos.
+         */
+        private const val SCREENSHOT_MAX_LONGEST_SIDE = 2048
+        private const val SCREENSHOT_JPEG_QUALITY = 85
 
         private val notCompressibleImageTypes = listOf(MimeTypes.Gif, MimeTypes.WebP, MimeTypes.Svg)
     }
@@ -146,7 +151,12 @@ class AndroidMediaPreProcessor(
     private fun MediaUploadInfo.postProcess(uri: Uri): MediaUploadInfo {
         Timber.d("Finished processing, post-processing ${uri.path.orEmpty().hash()}")
         val name = context.getFileName(uri) ?: return this
-        val renamedFile = File(context.cacheDir, name).also {
+        // The file may have been re-encoded into another format, so make sure its extension matches its actual content.
+        val finalName = when (this) {
+            is MediaUploadInfo.Image -> imageInfo.mimetype?.let { name.withExtensionForMimeType(it) } ?: name
+            else -> name
+        }
+        val renamedFile = File(context.cacheDir, finalName).also {
             file.safeRenameTo(it)
         }
         return when (this) {
@@ -167,49 +177,56 @@ class AndroidMediaPreProcessor(
                 exifInterface?.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED)
             } ?: ExifInterface.ORIENTATION_UNDEFINED
 
+            val isPng = mimeType == MimeTypes.Png
+            val maxLongestSide = if (isPng) SCREENSHOT_MAX_LONGEST_SIDE else PHOTO_MAX_LONGEST_SIDE
+            val outputFormat = if (isPng) {
+                // Screenshots are often PNG with a fully opaque alpha channel: in that case JPEG is much smaller.
+                ImageOutputFormat.PngOrJpeg(jpegQuality = SCREENSHOT_JPEG_QUALITY)
+            } else {
+                ImageOutputFormat.Jpeg(quality = PHOTO_JPEG_QUALITY)
+            }
+
             val compressionResult = imageCompressor.compressToTmpFile(
                 inputStreamProvider = { contentResolver.openInputStream(uri)!! },
-                resizeMode = ResizeMode.Approximate(IMAGE_SCALE_REF_SIZE, IMAGE_SCALE_REF_SIZE),
-                mimeType = mimeType,
+                resizeMode = ResizeMode.Strict(maxWidth = maxLongestSide, maxHeight = maxLongestSide),
+                outputFormat = outputFormat,
                 orientation = orientation,
-            ).getOrThrow()
+            )
+                .onFailure {
+                    Timber.w(it, "Could not compress image ${uri.path.orEmpty().hash()}, sending the original file")
+                }
+                .getOrNull()
+
+            if (compressionResult == null) {
+                return createUploadInfoFromOriginalImage(uri, mimeType)
+            }
+
             val thumbnailResult = thumbnailFactory.createImageThumbnail(
                 file = compressionResult.file,
-                mimeType = mimeType,
+                mimeType = compressionResult.mimeType,
             )
-            val imageInfo = compressionResult.toImageInfo(
-                mimeType = mimeType,
-                thumbnailResult = thumbnailResult
-            )
-            removeSensitiveImageMetadata(compressionResult.file)
-            return MediaUploadInfo.Image(
+            return createImageUploadInfo(
                 file = compressionResult.file,
-                imageInfo = imageInfo,
-                thumbnailFile = thumbnailResult?.file
+                mimeType = compressionResult.mimeType,
+                width = compressionResult.width.toLong(),
+                height = compressionResult.height.toLong(),
+                thumbnailResult = thumbnailResult,
             )
         }
 
         suspend fun processImageWithoutCompression(): MediaUploadInfo {
             val file = copyToTmpFile(uri)
+            val (width, height) = extractOrientedImageDimensions(file)
             val thumbnailResult = thumbnailFactory.createImageThumbnail(
                 file = file,
                 mimeType = mimeType,
             )
-            val (width, height) = extractOrientedImageDimensions(file)
-            val imageInfo = ImageInfo(
+            return createImageUploadInfo(
+                file = file,
+                mimeType = mimeType,
                 width = width,
                 height = height,
-                mimetype = mimeType,
-                size = file.length(),
-                thumbnailInfo = thumbnailResult?.info,
-                thumbnailSource = null,
-                blurhash = thumbnailResult?.blurhash,
-            )
-            removeSensitiveImageMetadata(file)
-            return MediaUploadInfo.Image(
-                file = file,
-                imageInfo = imageInfo,
-                thumbnailFile = thumbnailResult?.file
+                thumbnailResult = thumbnailResult,
             )
         }
 
@@ -218,6 +235,46 @@ class AndroidMediaPreProcessor(
         } else {
             processImageWithoutCompression()
         }
+    }
+
+    private fun createImageUploadInfo(
+        file: File,
+        mimeType: String,
+        width: Long,
+        height: Long,
+        thumbnailResult: ThumbnailResult?,
+    ): MediaUploadInfo.Image {
+        // Remove the metadata before reading the size, as it changes the length of the file.
+        removeSensitiveImageMetadata(file)
+        return MediaUploadInfo.Image(
+            file = file,
+            imageInfo = ImageInfo(
+                width = width,
+                height = height,
+                mimetype = mimeType,
+                size = file.length(),
+                thumbnailInfo = thumbnailResult?.info,
+                thumbnailSource = null,
+                blurhash = thumbnailResult?.blurhash,
+            ),
+            thumbnailFile = thumbnailResult?.file,
+        )
+    }
+
+    private suspend fun createUploadInfoFromOriginalImage(uri: Uri, mimeType: String): MediaUploadInfo {
+        val file = copyToTmpFile(uri)
+        val (width, height) = extractOrientedImageDimensions(file)
+        val thumbnailResult = thumbnailFactory.createImageThumbnail(
+            file = file,
+            mimeType = mimeType,
+        )
+        return createImageUploadInfo(
+            file = file,
+            mimeType = mimeType,
+            width = width,
+            height = height,
+            thumbnailResult = thumbnailResult,
+        )
     }
 
     private suspend fun processVideo(uri: Uri, mimeType: String?, videoCompressionPreset: VideoCompressionPreset): MediaUploadInfo {
@@ -371,16 +428,17 @@ class AndroidMediaPreProcessor(
     }
 }
 
-private fun ImageCompressionResult.toImageInfo(mimeType: String, thumbnailResult: ThumbnailResult?) = ImageInfo(
-    width = width.toLong(),
-    height = height.toLong(),
-    mimetype = mimeType,
-    size = size,
-    thumbnailInfo = thumbnailResult?.info,
-    // Will be computed by the rust sdk
-    thumbnailSource = null,
-    blurhash = thumbnailResult?.blurhash,
-)
+private fun String.withExtensionForMimeType(mimeType: String): String {
+    val extension = mimeTypeToOutputFileExtension(mimeType) ?: return this
+    val currentExtension = substringAfterLast('.', missingDelimiterValue = "").lowercase()
+    // Several extensions can match the same mime type (eg. image/jpeg and .jpeg), keep the current one in that case.
+    val validExtensions = when (mimeType) {
+        MimeTypes.Jpeg -> setOf("jpg", "jpeg")
+        MimeTypes.Png -> setOf("png")
+        else -> return this
+    }
+    return if (currentExtension in validExtensions) this else "${substringBeforeLast('.', this)}.$extension"
+}
 
 private fun MediaMetadataRetriever.extractDuration(): Duration {
     val durationInMs = extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L

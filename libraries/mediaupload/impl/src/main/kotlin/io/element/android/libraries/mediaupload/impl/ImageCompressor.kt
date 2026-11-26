@@ -19,10 +19,19 @@ import io.element.android.libraries.androidutils.bitmap.rotateToExifMetadataOrie
 import io.element.android.libraries.androidutils.file.createTmpFile
 import io.element.android.libraries.core.coroutine.CoroutineDispatchers
 import io.element.android.libraries.core.extensions.runCatchingExceptions
+import io.element.android.libraries.core.mimetype.MimeTypes
 import io.element.android.libraries.di.annotations.ApplicationContext
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStream
+
+/**
+ * Quality used when encoding a PNG. The value is ignored by [Bitmap.CompressFormat.PNG], which is lossless.
+ */
+private const val PNG_QUALITY = 100
+
+private const val ALPHA_SHIFT = 24
+private const val OPAQUE_ALPHA = 0xFF
 
 @Inject
 class ImageCompressor(
@@ -31,31 +40,39 @@ class ImageCompressor(
 ) {
     /**
      * Decodes the [inputStream] into a [Bitmap] and applies the needed transformations (rotation, scale) based on [resizeMode], then writes it into a
-     * temporary file using the passed [format], [orientation] and [desiredQuality].
+     * temporary file using [outputFormat], [orientation] and the quality defined by [outputFormat].
      * @return a [Result] containing the resulting [ImageCompressionResult] with the temporary [File] and some metadata.
      */
     suspend fun compressToTmpFile(
         inputStreamProvider: () -> InputStream,
         resizeMode: ResizeMode,
-        mimeType: String,
+        outputFormat: ImageOutputFormat,
         orientation: Int = ExifInterface.ORIENTATION_UNDEFINED,
-        desiredQuality: Int = 78,
     ): Result<ImageCompressionResult> = withContext(dispatchers.io) {
         runCatchingExceptions {
-            val format = mimeTypeToCompressFormat(mimeType)
-            val extension = mimeTypeToCompressFileExtension(mimeType)
             val compressedBitmap = compressToBitmap(inputStreamProvider, resizeMode, orientation).getOrThrow()
-            // Encode bitmap to the destination temporary file
-            val tmpFile = context.createTmpFile(extension = extension)
-            tmpFile.outputStream().use {
-                compressedBitmap.compress(format, desiredQuality, it)
+            val (format, mimeType, quality) = when (outputFormat) {
+                is ImageOutputFormat.Jpeg -> Triple(Bitmap.CompressFormat.JPEG, MimeTypes.Jpeg, outputFormat.quality)
+                is ImageOutputFormat.PngOrJpeg -> if (compressedBitmap.hasTransparentPixels()) {
+                    Triple(Bitmap.CompressFormat.PNG, MimeTypes.Png, PNG_QUALITY)
+                } else {
+                    Triple(Bitmap.CompressFormat.JPEG, MimeTypes.Jpeg, outputFormat.jpegQuality)
+                }
             }
-            ImageCompressionResult(
+            // Encode bitmap to the destination temporary file
+            val tmpFile = context.createTmpFile(extension = mimeTypeToCompressFileExtension(mimeType))
+            tmpFile.outputStream().use {
+                compressedBitmap.compress(format, quality, it)
+            }
+            val result = ImageCompressionResult(
                 file = tmpFile,
                 width = compressedBitmap.width,
                 height = compressedBitmap.height,
-                size = tmpFile.length()
+                size = tmpFile.length(),
+                mimeType = mimeType,
             )
+            compressedBitmap.recycle()
+            result
         }
     }
 
@@ -94,17 +111,50 @@ class ImageCompressor(
         resizeMode: ResizeMode,
         options: BitmapFactory.Options
     ) {
-        val (width, height) = when (resizeMode) {
-            is ResizeMode.Approximate -> resizeMode.desiredWidth to resizeMode.desiredHeight
-            is ResizeMode.Strict -> resizeMode.maxWidth / 2 to resizeMode.maxHeight / 2
+        when (resizeMode) {
+            is ResizeMode.Approximate -> {
+                options.inJustDecodeBounds = true
+                BitmapFactory.decodeStream(inputStream, null, options)
+                options.inSampleSize = options.calculateInSampleSize(resizeMode.desiredWidth, resizeMode.desiredHeight)
+            }
+            is ResizeMode.Strict -> {
+                options.inJustDecodeBounds = true
+                BitmapFactory.decodeStream(inputStream, null, options)
+                // Sampling must keep enough pixels on the longest side so that the exact scale below doesn't lose sharpness.
+                options.inSampleSize = options.calculateInSampleSizeForLongestSide(
+                    desiredLongestSide = maxOf(resizeMode.maxWidth, resizeMode.maxHeight),
+                )
+            }
             is ResizeMode.None -> return
         }
-        // Read bounds only
-        options.inJustDecodeBounds = true
-        BitmapFactory.decodeStream(inputStream, null, options)
-        // Set sample size based on the outWidth and outHeight
-        options.inSampleSize = options.calculateInSampleSize(width, height)
     }
+}
+
+/**
+ * Returns true if at least one pixel of the bitmap is not fully opaque.
+ * [Bitmap.hasAlpha] only tells whether the bitmap *may* contain transparent pixels (and is not reliable for decoded
+ * bitmaps), so the pixels are always checked.
+ */
+private fun Bitmap.hasTransparentPixels(): Boolean {
+    val row = IntArray(width)
+    for (y in 0 until height) {
+        getPixels(row, 0, width, 0, y, width, 1)
+        if (row.any { it ushr ALPHA_SHIFT != OPAQUE_ALPHA }) return true
+    }
+    return false
+}
+
+/**
+ * Calculates the largest power of two that keeps the longest side of the decoded image greater than or equal to [desiredLongestSide].
+ * The bounds must have been read into this [BitmapFactory.Options] beforehand.
+ */
+private fun BitmapFactory.Options.calculateInSampleSizeForLongestSide(desiredLongestSide: Int): Int {
+    var inSampleSize = 1
+    val longestSide = maxOf(outWidth, outHeight)
+    while (longestSide / (inSampleSize * 2) >= desiredLongestSide) {
+        inSampleSize *= 2
+    }
+    return inSampleSize
 }
 
 data class ImageCompressionResult(
@@ -112,7 +162,20 @@ data class ImageCompressionResult(
     val width: Int,
     val height: Int,
     val size: Long,
+    val mimeType: String,
 )
+
+sealed interface ImageOutputFormat {
+    /**
+     * Always encodes the bitmap as JPEG using [quality].
+     */
+    data class Jpeg(val quality: Int) : ImageOutputFormat
+
+    /**
+     * Encodes the bitmap as PNG if it contains at least one transparent pixel, or as JPEG using [jpegQuality] otherwise.
+     */
+    data class PngOrJpeg(val jpegQuality: Int) : ImageOutputFormat
+}
 
 sealed interface ResizeMode {
     data object None : ResizeMode
