@@ -10,13 +10,22 @@ package io.element.android.features.stickers.api
 import com.bumble.appyx.core.modality.BuildContext
 import com.bumble.appyx.core.node.Node
 import io.element.android.libraries.architecture.FeatureEntryPoint
+import io.element.android.libraries.matrix.api.core.EventId
 
 /**
  * Entry point for the "My stickers" tray.
  */
 interface MyStickersEntryPoint : FeatureEntryPoint {
+    data class Params(
+        /**
+         * When set, the sticker picked from the tray is sent in this thread.
+         */
+        val threadRootEventId: EventId? = null,
+    )
+
     fun createNode(
         parentNode: Node,
         buildContext: BuildContext,
+        params: Params = Params(),
     ): Node
 }

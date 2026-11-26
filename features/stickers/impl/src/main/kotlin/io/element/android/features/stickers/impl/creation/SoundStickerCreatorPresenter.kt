@@ -35,6 +35,7 @@ import io.element.android.libraries.core.coroutine.CoroutineDispatchers
 import io.element.android.libraries.core.extensions.runCatchingExceptions
 import io.element.android.libraries.core.mimetype.MimeTypes
 import io.element.android.libraries.di.annotations.SessionCoroutineScope
+import io.element.android.libraries.matrix.api.core.EventId
 import io.element.android.libraries.matrix.api.room.JoinedRoom
 import io.element.android.libraries.mediapickers.api.PickerProvider
 import io.element.android.libraries.permissions.api.PermissionsEvent
@@ -66,10 +67,11 @@ class SoundStickerCreatorPresenter(
     @SessionCoroutineScope private val sessionCoroutineScope: CoroutineScope,
     permissionsPresenterFactory: PermissionsPresenter.Factory,
     @Assisted private val navigateUp: () -> Unit,
+    @Assisted private val threadRootEventId: EventId?,
 ) : Presenter<SoundStickerCreatorState> {
     @AssistedFactory
     fun interface Factory {
-        fun create(navigateUp: () -> Unit): SoundStickerCreatorPresenter
+        fun create(navigateUp: () -> Unit, threadRootEventId: EventId?): SoundStickerCreatorPresenter
     }
 
     private val permissionsPresenter = permissionsPresenterFactory.create(Manifest.permission.RECORD_AUDIO)
@@ -241,6 +243,7 @@ class SoundStickerCreatorPresenter(
                 audioMimeType = audio?.mimeType,
                 durationMs = audio?.durationMs,
                 body = currentBody,
+                threadRootEventId = threadRootEventId,
             ).onSuccess {
                 isSending = false
                 if (save) {

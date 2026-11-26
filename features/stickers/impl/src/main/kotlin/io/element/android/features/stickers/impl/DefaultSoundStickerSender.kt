@@ -14,6 +14,7 @@ import io.element.android.libraries.core.extensions.runCatchingExceptions
 import io.element.android.libraries.core.mimetype.MimeTypes
 import io.element.android.libraries.di.SessionScope
 import io.element.android.libraries.matrix.api.MatrixClient
+import io.element.android.libraries.matrix.api.core.EventId
 import io.element.android.libraries.matrix.api.media.MediaAttachmentEncryptor
 import io.element.android.libraries.matrix.api.room.JoinedRoom
 import io.element.android.libraries.matrix.api.timeline.item.event.MAX_STICKER_AUDIO_DURATION_MS
@@ -46,6 +47,7 @@ class DefaultSoundStickerSender(
         audioMimeType: String?,
         durationMs: Long?,
         body: String,
+        threadRootEventId: EventId?,
     ): Result<Unit> = withContext(dispatchers.io) {
         runCatchingExceptions {
             validate(
@@ -84,6 +86,7 @@ class DefaultSoundStickerSender(
                 imageHeight = height,
                 audio = uploadedAudio,
                 audioDurationMs = durationMs,
+                threadRootEventId = threadRootEventId?.value,
             )
 
             room.sendRawMessageLikeEvent(eventType = EVENT_TYPE_STICKER, contentJson = contentJson).getOrThrow()
@@ -165,6 +168,7 @@ internal fun buildStickerContentJson(
     imageHeight: Int,
     audio: UploadedStickerMedia?,
     audioDurationMs: Long?,
+    threadRootEventId: String? = null,
 ): String {
     return buildJsonObject {
         put("body", body)
@@ -181,6 +185,16 @@ internal fun buildStickerContentJson(
                 put("mimetype", audio.mimeType)
                 put("size", audio.size)
                 put("duration", audioDurationMs)
+            }
+        }
+        if (threadRootEventId != null) {
+            putJsonObject("m.relates_to") {
+                put("rel_type", "m.thread")
+                put("event_id", threadRootEventId)
+                put("is_falling_back", true)
+                putJsonObject("m.in_reply_to") {
+                    put("event_id", threadRootEventId)
+                }
             }
         }
     }.toString()

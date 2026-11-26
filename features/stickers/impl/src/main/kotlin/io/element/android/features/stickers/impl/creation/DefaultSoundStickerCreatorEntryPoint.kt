@@ -19,7 +19,11 @@ class DefaultSoundStickerCreatorEntryPoint : SoundStickerCreatorEntryPoint {
     override fun createNode(
         parentNode: Node,
         buildContext: BuildContext,
+        params: SoundStickerCreatorEntryPoint.Params,
     ): Node {
-        return parentNode.createNode<SoundStickerCreatorNode>(buildContext = buildContext)
+        return parentNode.createNode<SoundStickerCreatorNode>(
+            buildContext = buildContext,
+            plugins = listOf(SoundStickerCreatorNode.Inputs(threadRootEventId = params.threadRootEventId)),
+        )
     }
 }

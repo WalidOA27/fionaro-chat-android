@@ -581,5 +581,6 @@ class SoundStickerCreatorPresenterTest {
         sessionCoroutineScope = this,
         permissionsPresenterFactory = FakePermissionsPresenterFactory(permissionsPresenter),
         navigateUp = { navigateUp() },
+        threadRootEventId = null,
     )
 }

@@ -10,13 +10,22 @@ package io.element.android.features.stickers.api
 import com.bumble.appyx.core.modality.BuildContext
 import com.bumble.appyx.core.node.Node
 import io.element.android.libraries.architecture.FeatureEntryPoint
+import io.element.android.libraries.matrix.api.core.EventId
 
 /**
  * Entry point for the sound sticker creation screen.
  */
 interface SoundStickerCreatorEntryPoint : FeatureEntryPoint {
+    data class Params(
+        /**
+         * When set, the created sticker is sent in this thread.
+         */
+        val threadRootEventId: EventId? = null,
+    )
+
     fun createNode(
         parentNode: Node,
         buildContext: BuildContext,
+        params: Params = Params(),
     ): Node
 }

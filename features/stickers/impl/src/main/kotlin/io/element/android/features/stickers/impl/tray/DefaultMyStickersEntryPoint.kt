@@ -19,7 +19,11 @@ class DefaultMyStickersEntryPoint : MyStickersEntryPoint {
     override fun createNode(
         parentNode: Node,
         buildContext: BuildContext,
+        params: MyStickersEntryPoint.Params,
     ): Node {
-        return parentNode.createNode<MyStickersNode>(buildContext = buildContext)
+        return parentNode.createNode<MyStickersNode>(
+            buildContext = buildContext,
+            plugins = listOf(MyStickersNode.Inputs(threadRootEventId = params.threadRootEventId)),
+        )
     }
 }

@@ -15,7 +15,10 @@ import com.bumble.appyx.core.plugin.Plugin
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedInject
 import io.element.android.annotations.ContributesNode
+import io.element.android.libraries.architecture.NodeInputs
+import io.element.android.libraries.architecture.inputs
 import io.element.android.libraries.di.RoomScope
+import io.element.android.libraries.matrix.api.core.EventId
 
 @ContributesNode(RoomScope::class)
 @AssistedInject
@@ -24,7 +27,15 @@ class MyStickersNode(
     @Assisted plugins: List<Plugin>,
     presenterFactory: MyStickersPresenter.Factory,
 ) : Node(buildContext, plugins = plugins) {
-    private val presenter = presenterFactory.create(navigateUp = ::navigateUp)
+    data class Inputs(
+        val threadRootEventId: EventId? = null,
+    ) : NodeInputs
+
+    private val inputs = inputs<Inputs>()
+    private val presenter = presenterFactory.create(
+        navigateUp = ::navigateUp,
+        threadRootEventId = inputs.threadRootEventId,
+    )
 
     @Composable
     override fun View(modifier: Modifier) {

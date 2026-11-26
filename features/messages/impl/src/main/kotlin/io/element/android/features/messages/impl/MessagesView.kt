@@ -487,7 +487,7 @@ private fun MessagesViewContent(
             onSoundStickerClick = onSoundStickerClick,
             onMyStickersClick = onMyStickersClick,
             enableTextFormatting = state.enableTextFormatting,
-            showSoundStickerEntries = state.timelineState.timelineMode !is Timeline.Mode.Thread,
+            showSoundStickerEntries = true,
         )
 
         if (state.voiceMessageComposerState.showPermissionRationaleDialog) {
