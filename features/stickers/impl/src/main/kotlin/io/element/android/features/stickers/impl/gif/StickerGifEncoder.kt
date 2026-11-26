@@ -45,11 +45,11 @@ internal class StickerGifEncoder(
         require(delayCentiseconds >= 0) { "Invalid frame delay $delayCentiseconds" }
         if (!headerWritten) writeHeader()
 
-        val hasTransparency = argbPixels.any { (it ushr 24) < TRANSPARENT_ALPHA_THRESHOLD }
+        val hasTransparency = argbPixels.any { it ushr 24 < TRANSPARENT_ALPHA_THRESHOLD }
         val palette = if (hasTransparency) {
             // Reserve the last index for transparency, quantizing only the visible pixels so
             // that a fully transparent background does not pollute the color table.
-            val opaquePixels = argbPixels.filter { (it ushr 24) >= TRANSPARENT_ALPHA_THRESHOLD }.toIntArray()
+            val opaquePixels = argbPixels.filter { it ushr 24 >= TRANSPARENT_ALPHA_THRESHOLD }.toIntArray()
             val colorsToQuantize = if (opaquePixels.isEmpty()) intArrayOf(OPAQUE_BLACK) else opaquePixels
             GifQuantizer.quantize(colorsToQuantize, MAX_COLORS - 1)
         } else {
@@ -57,7 +57,7 @@ internal class StickerGifEncoder(
         }
         val indices = ByteArray(argbPixels.size) { index ->
             val color = argbPixels[index]
-            if (hasTransparency && (color ushr 24) < TRANSPARENT_ALPHA_THRESHOLD) {
+            if (hasTransparency && color ushr 24 < TRANSPARENT_ALPHA_THRESHOLD) {
                 TRANSPARENT_INDEX.toByte()
             } else {
                 palette.indexOf(color).toByte()
