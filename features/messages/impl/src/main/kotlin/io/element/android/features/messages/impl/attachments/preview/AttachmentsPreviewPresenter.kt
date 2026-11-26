@@ -125,7 +125,7 @@ class AttachmentsPreviewPresenter(
             mutableStateOf<SendActionState>(SendActionState.Idle)
         }
         val currentItem = items.getOrNull(selectedIndex) ?: items.firstOrNull()
-        val mediaAttachment = currentItem?.attachment ?: (attachments.first() as Attachment.Media)
+        val mediaAttachment = currentItem?.attachment ?: attachments.first() as Attachment.Media
 
         var canEditImage by remember { mutableStateOf(currentItem?.originalMedia?.info?.canEditImage() == true) }
         var imageEditorState by remember { mutableStateOf<AttachmentImageEditorState?>(null) }
@@ -238,7 +238,7 @@ class AttachmentsPreviewPresenter(
             selectorState: MediaOptimizationSelectorState,
             alreadySentCount: Int,
             totalCount: Int,
-        ): Unit = withContext(dispatchers.io) {
+        ) = withContext(dispatchers.io) {
             var sentCount = 0
             // The caption always belongs to the last item of the whole selection, even when some items have already
             // been sent by a previous attempt.
@@ -322,7 +322,8 @@ class AttachmentsPreviewPresenter(
                         if (isSingleAttachment) {
                             // Wait until the media is ready to be uploaded
                             val mediaUploadInfo = observableSendState
-                                .firstInstanceOf<SendActionState.Sending.ReadyToUpload>().mediaInfo
+                                .firstInstanceOf<SendActionState.Sending.ReadyToUpload>()
+                                .mediaInfo
 
                             val editedTempFileToDelete = items.firstOrNull()?.editedTempFile
 
