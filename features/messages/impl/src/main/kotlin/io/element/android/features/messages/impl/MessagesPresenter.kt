@@ -8,6 +8,7 @@
 
 package io.element.android.features.messages.impl
 
+import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,12 +51,14 @@ import io.element.android.features.messages.impl.timeline.model.TimelineItemThre
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemEventContentWithAttachment
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemPollContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemStateContent
+import io.element.android.features.messages.impl.timeline.model.event.TimelineItemStickerContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemTextBasedContent
 import io.element.android.features.messages.impl.timeline.protection.TimelineProtectionState
 import io.element.android.features.messages.impl.voicemessages.composer.DefaultVoiceMessageComposerPresenter
 import io.element.android.features.roomcall.api.RoomCallState
 import io.element.android.features.roommembermoderation.api.RoomMemberModerationEvents
 import io.element.android.features.roommembermoderation.api.RoomMemberModerationState
+import io.element.android.features.stickers.api.SoundStickerStore
 import io.element.android.libraries.androidutils.clipboard.ClipboardHelper
 import io.element.android.libraries.architecture.AsyncData
 import io.element.android.libraries.architecture.Presenter
@@ -74,6 +77,7 @@ import io.element.android.libraries.featureflag.api.FeatureFlags
 import io.element.android.libraries.matrix.api.core.toThreadId
 import io.element.android.libraries.matrix.api.encryption.EncryptionService
 import io.element.android.libraries.matrix.api.encryption.identity.IdentityState
+import io.element.android.libraries.matrix.api.media.MatrixMediaLoader
 import io.element.android.libraries.matrix.api.permalink.PermalinkParser
 import io.element.android.libraries.matrix.api.room.JoinedRoom
 import io.element.android.libraries.matrix.api.room.RoomInfo
@@ -97,6 +101,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 @AssistedInject
@@ -130,6 +135,8 @@ class MessagesPresenter(
     private val markAsFullyRead: MarkAsFullyRead,
     private val liveLocationShareManager: ActiveLiveLocationShareManager,
     @SessionCoroutineScope private val sessionCoroutineScope: CoroutineScope,
+    private val matrixMediaLoader: MatrixMediaLoader,
+    private val soundStickerStore: SoundStickerStore,
 ) : Presenter<MessagesState> {
     @AssistedFactory
     interface Factory {
@@ -393,6 +400,7 @@ class MessagesPresenter(
             }
             TimelineItemAction.ViewSource -> handleShowDebugInfoAction(targetEvent)
             TimelineItemAction.Forward -> handleForwardAction(targetEvent)
+            TimelineItemAction.SaveSticker -> handleSaveStickerAction(targetEvent)
             TimelineItemAction.ReportContent -> handleReportAction(targetEvent)
             TimelineItemAction.EndPoll -> handleEndPollAction(targetEvent, timelineState)
             TimelineItemAction.Pin -> handlePinAction(targetEvent)
@@ -443,6 +451,64 @@ class MessagesPresenter(
                     snackbarDispatcher.post(SnackbarMessage(CommonStrings.common_error))
                 }
         }
+    }
+
+    private suspend fun handleSaveStickerAction(targetEvent: TimelineItem.Event) {
+        val content = targetEvent.content as? TimelineItemStickerContent ?: return
+        val result = withContext(dispatchers.io) {
+            runCatchingExceptions {
+                val imageMediaFile = matrixMediaLoader.downloadMediaFile(
+                    source = content.preferredMediaSource ?: content.mediaSource,
+                    mimeType = content.mimeType,
+                    filename = content.filename,
+                ).getOrThrow()
+                imageMediaFile.use { image ->
+                    val audioMediaFile = content.audio?.let { audio ->
+                        matrixMediaLoader.downloadMediaFile(
+                            source = audio.mediaSource,
+                            mimeType = audio.mimetype,
+                            filename = null,
+                        ).getOrThrow()
+                    }
+                    try {
+                        val (width, height) = stickerSize(content, image.path())
+                        soundStickerStore.add(
+                            imageFile = File(image.path()),
+                            imageMimeType = content.mimeType,
+                            width = width,
+                            height = height,
+                            audioFile = audioMediaFile?.let { File(it.path()) },
+                            audioMimeType = content.audio?.mimetype,
+                            durationMs = content.audio?.durationMs,
+                            body = content.caption ?: content.filename.ifBlank { DEFAULT_STICKER_BODY },
+                            sourceUrl = content.mediaSource.safeUrl.takeIf { it.isNotBlank() },
+                        ).getOrThrow()
+                    } finally {
+                        audioMediaFile?.close()
+                    }
+                }
+            }
+        }
+        result
+            .onSuccess {
+                snackbarDispatcher.post(SnackbarMessage(R.string.screen_room_save_sticker_success))
+            }
+            .onFailure {
+                Timber.w(it, "Unable to save the received sticker")
+                snackbarDispatcher.post(SnackbarMessage(R.string.screen_room_save_sticker_error))
+            }
+    }
+
+    private fun stickerSize(content: TimelineItemStickerContent, imagePath: String): Pair<Int, Int> {
+        val width = content.width ?: 0
+        val height = content.height ?: 0
+        if (width > 0 && height > 0) return width to height
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(imagePath, options)
+        require(options.outWidth > 0 && options.outHeight > 0) {
+            "Unable to read the sticker dimensions"
+        }
+        return options.outWidth to options.outHeight
     }
 
     private fun CoroutineScope.toggleReaction(
@@ -611,5 +677,9 @@ class MessagesPresenter(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             snackbarDispatcher.post(SnackbarMessage(CommonStrings.common_copied_to_clipboard))
         }
+    }
+
+    private companion object {
+        const val DEFAULT_STICKER_BODY = "Sticker"
     }
 }

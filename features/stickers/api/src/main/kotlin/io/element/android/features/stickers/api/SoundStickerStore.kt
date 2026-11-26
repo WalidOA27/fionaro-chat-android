@@ -33,6 +33,11 @@ interface SoundStickerStore {
         audioMimeType: String? = null,
         durationMs: Long? = null,
         body: String,
+        /**
+         * The mxc URL of the source sticker, if any. When a sticker with the same URL is
+         * already stored, it is returned as-is instead of creating a duplicate.
+         */
+        sourceUrl: String? = null,
     ): Result<SoundSticker>
 
     /**

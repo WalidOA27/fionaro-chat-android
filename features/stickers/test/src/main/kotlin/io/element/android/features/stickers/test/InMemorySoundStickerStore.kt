@@ -40,10 +40,13 @@ class InMemorySoundStickerStore(
         audioMimeType: String?,
         durationMs: Long?,
         body: String,
+        sourceUrl: String?,
     ): Result<SoundSticker> {
         addCalls.add(
-            AddParameters(imageFile, imageMimeType, width, height, audioFile, audioMimeType, durationMs, body)
+            AddParameters(imageFile, imageMimeType, width, height, audioFile, audioMimeType, durationMs, body, sourceUrl)
         )
+        val existing = sourceUrl?.let { url -> _stickers.value.firstOrNull { it.sourceUrl == url } }
+        if (existing != null) return Result.success(existing)
         val result = addResult(_stickers.value)
         result.onSuccess { sticker ->
             _stickers.update { current -> listOf(sticker) + current }
@@ -66,6 +69,7 @@ class InMemorySoundStickerStore(
         val audioMimeType: String?,
         val durationMs: Long?,
         val body: String,
+        val sourceUrl: String? = null,
     )
 }
 
@@ -74,6 +78,7 @@ fun aSoundSticker(
     imagePath: String = "/tmp/sticker.png",
     audioPath: String? = "/tmp/sticker.ogg",
     body: String = "Sticker",
+    sourceUrl: String? = null,
 ) = SoundSticker(
     id = id,
     imagePath = imagePath,
@@ -85,4 +90,5 @@ fun aSoundSticker(
     durationMs = audioPath?.let { 3200L },
     body = body,
     createdAt = 0,
+    sourceUrl = sourceUrl,
 )

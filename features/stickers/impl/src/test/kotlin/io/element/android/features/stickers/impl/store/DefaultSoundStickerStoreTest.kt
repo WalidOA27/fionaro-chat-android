@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.common.truth.Truth.assertThat
 import io.element.android.features.stickers.api.SoundStickerStore
+import io.element.android.libraries.preferences.api.store.PreferenceDataStoreFactory
 import io.element.android.libraries.preferences.test.FakePreferenceDataStoreFactory
 import io.element.android.tests.testutils.robolectric.RobolectricTest
 import io.element.android.tests.testutils.testCoroutineDispatchers
@@ -116,6 +117,62 @@ class DefaultSoundStickerStoreTest : RobolectricTest() {
         assertThat(File(sticker.imagePath).exists()).isTrue()
         assertThat(File(sticker.imagePath).parentFile?.listFiles()?.toList()).hasSize(1)
         assertThat(sut.stickers.first()).containsExactly(sticker)
+    }
+
+    @Test
+    fun `add - an existing source url is not duplicated`() = runTest {
+        val sut = createStore()
+        val first = sut.add(
+            imageFile = temporaryFolder.writeFile("first.png", "first".toByteArray()),
+            imageMimeType = "image/png",
+            width = 512,
+            height = 512,
+            audioFile = null,
+            audioMimeType = null,
+            durationMs = null,
+            body = "First",
+            sourceUrl = "mxc://matrix.org/sticker",
+        ).getOrThrow()
+        val second = sut.add(
+            imageFile = temporaryFolder.writeFile("second.png", "second".toByteArray()),
+            imageMimeType = "image/png",
+            width = 512,
+            height = 512,
+            audioFile = null,
+            audioMimeType = null,
+            durationMs = null,
+            body = "Second",
+            sourceUrl = "mxc://matrix.org/sticker",
+        ).getOrThrow()
+
+        assertThat(second.id).isEqualTo(first.id)
+        assertThat(sut.stickers.first()).containsExactly(first)
+        assertThat(File(first.imagePath).readText()).isEqualTo("first")
+    }
+
+    @Test
+    fun `stickers - old JSON without a source url is still decoded`() = runTest {
+        val store = preferenceDataStoreFactory.create("fionaro_sound_stickers")
+        store.edit { preferences ->
+            preferences[stringPreferencesKey("sound_stickers")] = """
+                [{"id":"old","imagePath":"/tmp/old.png","imageMimeType":"image/png","width":512,
+                "height":512,"audioPath":null,"audioMimeType":null,"durationMs":null,
+                "body":"Old","createdAt":1}]
+            """.trimIndent()
+        }
+        val sut = DefaultSoundStickerStore(
+            context = context,
+            preferenceDataStoreFactory = object : PreferenceDataStoreFactory {
+                override fun create(name: String) = store
+            },
+            dispatchers = testCoroutineDispatchers(),
+        )
+
+        val stickers = sut.stickers.first()
+
+        assertThat(stickers).hasSize(1)
+        assertThat(stickers.single().id).isEqualTo("old")
+        assertThat(stickers.single().sourceUrl).isNull()
     }
 
     @Test

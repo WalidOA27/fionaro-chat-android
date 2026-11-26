@@ -184,6 +184,7 @@ fun MessagesView(
                 ActionListEvent.ComputeForMessage(
                     event = event,
                     userEventPermissions = state.userEventPermissions,
+                    isMediaVisible = !state.timelineProtectionState.hideMediaContent(event.eventId, event.isMine),
                 )
             )
         }
