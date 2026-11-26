@@ -45,10 +45,26 @@ internal class StickerGifEncoder(
         require(delayCentiseconds >= 0) { "Invalid frame delay $delayCentiseconds" }
         if (!headerWritten) writeHeader()
 
-        val palette = GifQuantizer.quantize(argbPixels, MAX_COLORS)
-        val indices = ByteArray(argbPixels.size) { index -> palette.indexOf(argbPixels[index]).toByte() }
+        val hasTransparency = argbPixels.any { (it ushr 24) < TRANSPARENT_ALPHA_THRESHOLD }
+        val palette = if (hasTransparency) {
+            // Reserve the last index for transparency, quantizing only the visible pixels so
+            // that a fully transparent background does not pollute the color table.
+            val opaquePixels = argbPixels.filter { (it ushr 24) >= TRANSPARENT_ALPHA_THRESHOLD }.toIntArray()
+            val colorsToQuantize = if (opaquePixels.isEmpty()) intArrayOf(OPAQUE_BLACK) else opaquePixels
+            GifQuantizer.quantize(colorsToQuantize, MAX_COLORS - 1)
+        } else {
+            GifQuantizer.quantize(argbPixels, MAX_COLORS)
+        }
+        val indices = ByteArray(argbPixels.size) { index ->
+            val color = argbPixels[index]
+            if (hasTransparency && (color ushr 24) < TRANSPARENT_ALPHA_THRESHOLD) {
+                TRANSPARENT_INDEX.toByte()
+            } else {
+                palette.indexOf(color).toByte()
+            }
+        }
 
-        writeGraphicsControlExtension(delayCentiseconds)
+        writeGraphicsControlExtension(delayCentiseconds, hasTransparency)
         writeImageDescriptor()
         writeColorTable(palette)
         GifLzwEncoder(pixels = indices, initCodeSize = CODE_SIZE).encode(output)
@@ -80,14 +96,17 @@ internal class StickerGifEncoder(
         output.write(0x00)
     }
 
-    private fun writeGraphicsControlExtension(delayCentiseconds: Int) {
+    private fun writeGraphicsControlExtension(delayCentiseconds: Int, hasTransparency: Boolean) {
         output.write(0x21)
         output.write(0xF9)
         output.write(0x04)
-        // Disposal method 1 ("do not dispose"), no transparency.
-        output.write(0x04)
+        // Disposal method 2 ("restore to background") for transparent frames so that the next
+        // frame does not keep the previous one behind its transparent pixels, 1 otherwise.
+        // The transparency flag is the lowest bit of the packed field.
+        val packed = if (hasTransparency) DISPOSAL_RESTORE_TO_BACKGROUND or TRANSPARENCY_FLAG else DISPOSAL_DO_NOT_DISPOSE
+        output.write(packed)
         writeShort(delayCentiseconds)
-        output.write(0x00) // transparent color index
+        output.write(if (hasTransparency) TRANSPARENT_INDEX else 0x00) // transparent color index
         output.write(0x00) // block terminator
     }
 
@@ -118,6 +137,12 @@ internal class StickerGifEncoder(
     private companion object {
         const val MAX_DIMENSION = 4096
         const val MAX_COLORS = 256
+        const val TRANSPARENT_INDEX = MAX_COLORS - 1
+        const val TRANSPARENT_ALPHA_THRESHOLD = 128
+        const val OPAQUE_BLACK = 0xFF000000.toInt()
+        const val DISPOSAL_DO_NOT_DISPOSE = 0x04 // disposal method 1, shifted by 2
+        const val DISPOSAL_RESTORE_TO_BACKGROUND = 0x08 // disposal method 2, shifted by 2
+        const val TRANSPARENCY_FLAG = 0x01
         const val CODE_SIZE = 8
         const val LOOP_FOREVER = 0
         const val TRAILER = 0x3B

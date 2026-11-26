@@ -89,6 +89,47 @@ class StickerGifEncoderTest {
     }
 
     @Test
+    fun `encode - transparent pixels get the reserved index, a transparency flag and disposal 2`() {
+        val transparent = 0x00FF0000
+        val pixels = intArrayOf(red, transparent, blue, transparent)
+        val encoder = StickerGifEncoder(width = 2, height = 2)
+
+        encoder.addFrame(pixels, delayCentiseconds = 8)
+        val frame = ParsedGif.parse(encoder.finish()).frames.single()
+
+        assertThat(frame.hasTransparency).isTrue()
+        assertThat(frame.transparentColorIndex).isEqualTo(255)
+        assertThat(frame.disposalMethod).isEqualTo(2)
+        val indices = frame.decodedIndices
+        assertThat(indices[1]).isEqualTo(255)
+        assertThat(indices[3]).isEqualTo(255)
+        assertThat(frame.palette[indices[0]]).isEqualTo(red)
+        assertThat(frame.palette[indices[2]]).isEqualTo(blue)
+    }
+
+    @Test
+    fun `encode - fully opaque frames keep disposal 1 and no transparency`() {
+        val encoder = StickerGifEncoder(width = 2, height = 2)
+
+        encoder.addFrame(solidFrame(2, 2, red), delayCentiseconds = 8)
+        val frame = ParsedGif.parse(encoder.finish()).frames.single()
+
+        assertThat(frame.hasTransparency).isFalse()
+        assertThat(frame.disposalMethod).isEqualTo(1)
+    }
+
+    @Test
+    fun `encode - a fully transparent frame still produces a valid frame`() {
+        val encoder = StickerGifEncoder(width = 2, height = 2)
+
+        encoder.addFrame(IntArray(4), delayCentiseconds = 8)
+        val frame = ParsedGif.parse(encoder.finish()).frames.single()
+
+        assertThat(frame.hasTransparency).isTrue()
+        assertThat(frame.decodedIndices).containsExactly(255, 255, 255, 255)
+    }
+
+    @Test
     fun `encode - an empty animation is only a header and a trailer`() {
         val gif = StickerGifEncoder(width = 2, height = 2).finish()
 
