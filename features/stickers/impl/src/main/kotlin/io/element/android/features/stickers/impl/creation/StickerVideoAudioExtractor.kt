@@ -100,7 +100,7 @@ class DefaultStickerVideoAudioExtractor(
                     if (readNext) {
                         if (sampleTimeUs >= startUs) {
                             if (firstSampleTimeUs == UNKNOWN_TIME) firstSampleTimeUs = sampleTimeUs
-                            info.set(0, size, sampleTimeUs - firstSampleTimeUs, extractor.sampleFlags)
+                            info.set(0, size, sampleTimeUs - firstSampleTimeUs, extractor.sampleFlags.toBufferFlags())
                             muxer.writeSampleData(muxerTrack, buffer, info)
                             samplesWritten += 1
                         }
@@ -137,4 +137,11 @@ class DefaultStickerVideoAudioExtractor(
         const val MAX_AUDIO_DURATION_MS = 10_000L
         const val UNKNOWN_TIME = -1L
     }
+}
+
+/**
+ * Maps [MediaExtractor] sample flags to the [MediaCodec] buffer flags expected by [android.media.MediaMuxer].
+ */
+private fun Int.toBufferFlags(): Int {
+    return if (this and MediaExtractor.SAMPLE_FLAG_SYNC != 0) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0
 }

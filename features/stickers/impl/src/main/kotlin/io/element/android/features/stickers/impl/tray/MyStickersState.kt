@@ -8,9 +8,11 @@
 package io.element.android.features.stickers.impl.tray
 
 import androidx.annotation.StringRes
+import androidx.compose.runtime.Immutable
 import io.element.android.features.stickers.api.SoundSticker
 import kotlinx.collections.immutable.ImmutableList
 
+@Immutable
 data class MyStickersState(
     val stickers: ImmutableList<SoundSticker>,
     val sendingStickerId: String?,

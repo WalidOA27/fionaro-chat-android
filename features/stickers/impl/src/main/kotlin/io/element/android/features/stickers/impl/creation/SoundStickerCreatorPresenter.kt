@@ -8,6 +8,7 @@
 package io.element.android.features.stickers.impl.creation
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -189,7 +190,11 @@ class SoundStickerCreatorPresenter(
         suspend fun startRecording() {
             sound = null
             isUsingVideoSound = false
-            runCatchingExceptions { voiceRecorder.startRecord() }
+            // Recording is only reachable once RECORD_AUDIO is granted (gated by PermissionsPresenter), and a
+            // SecurityException is still caught below.
+            @SuppressLint("MissingPermission")
+            val result = runCatchingExceptions { voiceRecorder.startRecord() }
+            result
                 .onFailure {
                     Timber.w(it, "Unable to start the sticker recording")
                     errorMessage = R.string.screen_sound_sticker_creator_error_record

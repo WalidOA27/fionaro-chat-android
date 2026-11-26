@@ -8,6 +8,7 @@
 package io.element.android.features.stickers.impl.creation
 
 import androidx.annotation.StringRes
+import androidx.compose.runtime.Immutable
 import io.element.android.features.stickers.api.StickerImage
 import io.element.android.features.stickers.impl.gif.StickerGifEncodingPlan
 import io.element.android.libraries.core.mimetype.MimeTypes
@@ -19,6 +20,7 @@ import kotlin.time.Duration
  * The video being turned into an animated sticker, and the position of the 6 second window
  * which is kept.
  */
+@Immutable
 data class StickerVideo(
     val source: StickerVideoSource,
     val startMs: Long,
@@ -35,6 +37,7 @@ data class StickerVideo(
     val maxStartMs: Long get() = StickerGifEncodingPlan.maxStartMs(source.durationMs)
 }
 
+@Immutable
 data class SoundStickerCreatorState(
     val image: StickerImage?,
     val isPreparingAnimation: Boolean,
