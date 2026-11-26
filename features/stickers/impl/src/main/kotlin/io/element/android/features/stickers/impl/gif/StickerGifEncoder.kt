@@ -49,8 +49,14 @@ internal class StickerGifEncoder(
         val palette = if (hasTransparency) {
             // Reserve the last index for transparency, quantizing only the visible pixels so
             // that a fully transparent background does not pollute the color table.
-            val opaquePixels = argbPixels.filter { it ushr 24 >= TRANSPARENT_ALPHA_THRESHOLD }.toIntArray()
-            val colorsToQuantize = if (opaquePixels.isEmpty()) intArrayOf(OPAQUE_BLACK) else opaquePixels
+            val opaquePixels = IntArray(argbPixels.size)
+            var opaqueCount = 0
+            for (color in argbPixels) {
+                if (color ushr 24 >= TRANSPARENT_ALPHA_THRESHOLD) {
+                    opaquePixels[opaqueCount++] = color
+                }
+            }
+            val colorsToQuantize = if (opaqueCount == 0) intArrayOf(OPAQUE_BLACK) else opaquePixels.copyOf(opaqueCount)
             GifQuantizer.quantize(colorsToQuantize, MAX_COLORS - 1)
         } else {
             GifQuantizer.quantize(argbPixels, MAX_COLORS)

@@ -8,7 +8,6 @@
 
 package io.element.android.features.messages.impl
 
-import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,6 +58,7 @@ import io.element.android.features.roomcall.api.RoomCallState
 import io.element.android.features.roommembermoderation.api.RoomMemberModerationEvents
 import io.element.android.features.roommembermoderation.api.RoomMemberModerationState
 import io.element.android.features.stickers.api.SoundStickerStore
+import io.element.android.features.stickers.api.StickerImageProcessor
 import io.element.android.libraries.androidutils.clipboard.ClipboardHelper
 import io.element.android.libraries.architecture.AsyncData
 import io.element.android.libraries.architecture.Presenter
@@ -86,6 +86,7 @@ import io.element.android.libraries.matrix.api.room.history.RoomHistoryVisibilit
 import io.element.android.libraries.matrix.api.room.powerlevels.permissionsAsState
 import io.element.android.libraries.matrix.api.timeline.Timeline
 import io.element.android.libraries.matrix.api.timeline.item.event.EventOrTransactionId
+import io.element.android.libraries.matrix.api.timeline.item.event.MAX_STICKER_AUDIO_DURATION_MS
 import io.element.android.libraries.matrix.ui.messages.reply.map
 import io.element.android.libraries.matrix.ui.model.getAvatarData
 import io.element.android.libraries.matrix.ui.room.getDirectRoomMember
@@ -137,6 +138,7 @@ class MessagesPresenter(
     @SessionCoroutineScope private val sessionCoroutineScope: CoroutineScope,
     private val matrixMediaLoader: MatrixMediaLoader,
     private val soundStickerStore: SoundStickerStore,
+    private val stickerImageProcessor: StickerImageProcessor,
 ) : Presenter<MessagesState> {
     @AssistedFactory
     interface Factory {
@@ -463,24 +465,31 @@ class MessagesPresenter(
                     filename = content.filename,
                 ).getOrThrow()
                 imageMediaFile.use { image ->
-                    val audioMediaFile = content.audio?.let { audio ->
+                    val stickerImage = stickerImageProcessor.process(
+                        inputFile = File(image.path()),
+                        mimeType = content.mimeType,
+                    ).getOrThrow()
+                    // The sender only accepts sounds of at most 10 seconds: keep the sticker
+                    // silent rather than saving an entry which could never be sent.
+                    val audio = content.audio?.takeIf { it.durationMs in 1..MAX_STICKER_AUDIO_DURATION_MS }
+                    val audioMediaFile = audio?.let {
                         matrixMediaLoader.downloadMediaFile(
-                            source = audio.mediaSource,
-                            mimeType = audio.mimetype,
+                            source = it.mediaSource,
+                            mimeType = it.mimetype,
                             filename = null,
                         ).getOrThrow()
                     }
                     try {
-                        val (width, height) = stickerSize(content, image.path())
                         soundStickerStore.add(
-                            imageFile = File(image.path()),
-                            imageMimeType = content.mimeType,
-                            width = width,
-                            height = height,
+                            imageFile = stickerImage.file,
+                            imageMimeType = stickerImage.mimeType,
+                            width = stickerImage.width,
+                            height = stickerImage.height,
                             audioFile = audioMediaFile?.let { File(it.path()) },
-                            audioMimeType = content.audio?.mimetype,
-                            durationMs = content.audio?.durationMs,
-                            body = content.caption ?: content.filename.ifBlank { DEFAULT_STICKER_BODY },
+                            audioMimeType = audio?.mimetype,
+                            durationMs = audio?.durationMs,
+                            body = (content.caption ?: content.filename).ifBlank { DEFAULT_STICKER_BODY }
+                                .take(MAX_STICKER_BODY_LENGTH),
                             sourceUrl = content.mediaSource.safeUrl.takeIf { it.isNotBlank() },
                         ).getOrThrow()
                     } finally {
@@ -497,18 +506,6 @@ class MessagesPresenter(
                 Timber.w(it, "Unable to save the received sticker")
                 snackbarDispatcher.post(SnackbarMessage(R.string.screen_room_save_sticker_error))
             }
-    }
-
-    private fun stickerSize(content: TimelineItemStickerContent, imagePath: String): Pair<Int, Int> {
-        val width = content.width ?: 0
-        val height = content.height ?: 0
-        if (width > 0 && height > 0) return width to height
-        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(imagePath, options)
-        require(options.outWidth > 0 && options.outHeight > 0) {
-            "Unable to read the sticker dimensions"
-        }
-        return options.outWidth to options.outHeight
     }
 
     private fun CoroutineScope.toggleReaction(
@@ -681,5 +678,6 @@ class MessagesPresenter(
 
     private companion object {
         const val DEFAULT_STICKER_BODY = "Sticker"
+        const val MAX_STICKER_BODY_LENGTH = 1024
     }
 }

@@ -36,6 +36,7 @@ import io.element.android.features.messages.impl.timeline.model.event.TimelineIt
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemImageContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemTextContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemVideoContent
+import io.element.android.features.messages.impl.timeline.model.event.aStickerAudio
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemImageContent
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemPollContent
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemStickerContent
@@ -45,6 +46,7 @@ import io.element.android.features.messages.test.timeline.FakeHtmlConverterProvi
 import io.element.android.features.messages.test.timeline.voicemessages.composer.FakeDefaultVoiceMessageComposerPresenterFactory
 import io.element.android.features.roomcall.api.aStandByCallState
 import io.element.android.features.roommembermoderation.api.RoomMemberModerationState
+import io.element.android.features.stickers.test.FakeStickerImageProcessor
 import io.element.android.features.stickers.test.InMemorySoundStickerStore
 import io.element.android.features.stickers.test.aSoundSticker
 import io.element.android.libraries.androidutils.clipboard.FakeClipboardHelper
@@ -1346,8 +1348,8 @@ class MessagesPresenterTest {
 
             assertThat(store.addCalls).hasSize(1)
             assertThat(store.addCalls.single().sourceUrl).isEqualTo("mxc://matrix.org/sticker")
-            assertThat(store.addCalls.single().width).isEqualTo(64)
-            assertThat(store.addCalls.single().height).isEqualTo(64)
+            assertThat(store.addCalls.single().width).isEqualTo(512)
+            assertThat(store.addCalls.single().height).isEqualTo(512)
             assertThat(consumeItemsUntilPredicate { it.snackbarMessage != null }.last().snackbarMessage?.messageResId)
                 .isEqualTo(R.string.screen_room_save_sticker_success)
         }
@@ -1376,6 +1378,36 @@ class MessagesPresenterTest {
             assertThat(store.addCalls).isEmpty()
             assertThat(consumeItemsUntilPredicate { it.snackbarMessage != null }.last().snackbarMessage?.messageResId)
                 .isEqualTo(R.string.screen_room_save_sticker_error)
+        }
+    }
+
+    @Test
+    fun `present - saving a sticker drops a sound longer than the sender limit`() = runTest {
+        val store = InMemorySoundStickerStore()
+        val loader = FakeMatrixMediaLoader().apply { path = "/tmp/sticker.png" }
+        val presenter = createMessagesPresenter(matrixMediaLoader = loader, soundStickerStore = store)
+
+        presenter.testWithLifecycleOwner {
+            val initialState = awaitItem()
+            val event = aMessageEvent(
+                isMine = false,
+                content = aTimelineItemStickerContent(
+                    mediaSource = MediaSource("mxc://matrix.org/sticker"),
+                    width = 64,
+                    height = 64,
+                    audio = aStickerAudio().copy(durationMs = 30_000),
+                ),
+            )
+
+            initialState.eventSink(MessagesEvent.HandleAction(TimelineItemAction.SaveSticker, event))
+            advanceUntilIdle()
+
+            assertThat(store.addCalls).hasSize(1)
+            assertThat(store.addCalls.single().audioFile).isNull()
+            assertThat(store.addCalls.single().audioMimeType).isNull()
+            assertThat(store.addCalls.single().durationMs).isNull()
+            assertThat(consumeItemsUntilPredicate { it.snackbarMessage != null }.last().snackbarMessage?.messageResId)
+                .isEqualTo(R.string.screen_room_save_sticker_success)
         }
     }
 
@@ -1472,6 +1504,7 @@ class MessagesPresenterTest {
         liveLocationShareManager: FakeActiveLiveLocationShareManager = FakeActiveLiveLocationShareManager(),
         matrixMediaLoader: FakeMatrixMediaLoader = FakeMatrixMediaLoader(),
         soundStickerStore: InMemorySoundStickerStore = InMemorySoundStickerStore(),
+        stickerImageProcessor: FakeStickerImageProcessor = FakeStickerImageProcessor(),
         snackbarDispatcher: SnackbarDispatcher = SnackbarDispatcher(),
     ): MessagesPresenter {
         return MessagesPresenter(
@@ -1506,6 +1539,7 @@ class MessagesPresenterTest {
             sessionCoroutineScope = backgroundScope,
             matrixMediaLoader = matrixMediaLoader,
             soundStickerStore = soundStickerStore,
+            stickerImageProcessor = stickerImageProcessor,
         )
     }
 }
