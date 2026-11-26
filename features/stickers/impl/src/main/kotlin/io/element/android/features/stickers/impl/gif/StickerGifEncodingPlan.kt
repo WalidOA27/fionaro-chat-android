@@ -88,3 +88,20 @@ internal object StickerGifEncodingPlan {
         return safeStart to min(maxDurationMs, remaining)
     }
 }
+
+/**
+ * Tries [encode] with each step in order and keeps the first result which fits in
+ * [budgetBytes]. Returns `null` when every step overflows the budget or cannot be encoded.
+ */
+internal fun <T> firstResultWithinBudget(
+    encode: (GifEncodingStep) -> T?,
+    sizeOf: (T) -> Int,
+    steps: List<GifEncodingStep> = StickerGifEncodingPlan.steps,
+    budgetBytes: Int = StickerGifEncodingPlan.MAX_FILE_SIZE_BYTES,
+): T? {
+    for (step in steps) {
+        val result = encode(step) ?: continue
+        if (sizeOf(result) <= budgetBytes) return result
+    }
+    return null
+}

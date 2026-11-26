@@ -14,6 +14,7 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import io.element.android.features.stickers.api.StickerImage
 import io.element.android.features.stickers.api.StickerImageProcessor
+import io.element.android.features.stickers.impl.creation.StickerAnimationProcessor
 import io.element.android.libraries.core.coroutine.CoroutineDispatchers
 import io.element.android.libraries.core.extensions.runCatchingExceptions
 import io.element.android.libraries.core.mimetype.MimeTypes
@@ -26,6 +27,7 @@ import java.util.UUID
 @ContributesBinding(AppScope::class)
 class DefaultStickerImageProcessor(
     @ApplicationContext private val context: Context,
+    private val animationProcessor: StickerAnimationProcessor,
     private val dispatchers: CoroutineDispatchers,
 ) : StickerImageProcessor {
     override suspend fun process(inputFile: File, mimeType: String): Result<StickerImage> = withContext(dispatchers.io) {
@@ -34,9 +36,27 @@ class DefaultStickerImageProcessor(
             val bytes = inputFile.readBytes()
             val bounds = decodeBounds(bytes) ?: error("Unable to decode image bounds")
 
-            if (normalizedMimeType == MimeTypes.Gif || normalizedMimeType == MimeTypes.WebP) {
-                // Animated images cannot be re-encoded without losing the animation, only
-                // accept them when they already satisfy the sticker constraints.
+            if (normalizedMimeType == MimeTypes.Gif) {
+                // A GIF which already satisfies the sticker constraints is passed through so that
+                // its frames, delays and loop count are kept as they are.
+                val fitsInSticker = bounds.outWidth in 1..MAX_STICKER_IMAGE_SIZE &&
+                    bounds.outHeight in 1..MAX_STICKER_IMAGE_SIZE
+                val isSmallEnough = bytes.size <= MAX_PASSTHROUGH_FILE_SIZE_IN_BYTES
+                if (fitsInSticker && isSmallEnough) {
+                    return@runCatchingExceptions StickerImage(
+                        file = inputFile,
+                        mimeType = normalizedMimeType,
+                        width = bounds.outWidth,
+                        height = bounds.outHeight,
+                    )
+                }
+                // Too large: decode it frame by frame and re-encode it as a sticker sized GIF.
+                return@runCatchingExceptions animationProcessor.processAnimatedImage(inputFile, normalizedMimeType).getOrThrow()
+            }
+
+            if (normalizedMimeType == MimeTypes.WebP) {
+                // Animated WebP cannot be decoded without losing the animation, only accept it
+                // when it already satisfies the sticker constraints.
                 val fitsInSticker = bounds.outWidth in 1..MAX_STICKER_IMAGE_SIZE &&
                     bounds.outHeight in 1..MAX_STICKER_IMAGE_SIZE
                 val isSmallEnough = bytes.size <= MAX_PASSTHROUGH_FILE_SIZE_IN_BYTES

@@ -87,4 +87,58 @@ class StickerGifEncodingPlanTest {
         assertThat(StickerGifEncodingPlan.maxStartMs(6_000)).isEqualTo(0)
         assertThat(StickerGifEncodingPlan.maxStartMs(1_000)).isEqualTo(0)
     }
+
+    @Test
+    fun `budget - retries with the next step when the encoding is too large`() {
+        val attempted = mutableListOf<GifEncodingStep>()
+
+        val result = firstResultWithinBudget(
+            encode = { step ->
+                attempted.add(step)
+                if (step == StickerGifEncodingPlan.steps.first()) 101 else 100
+            },
+            sizeOf = { it },
+            budgetBytes = 100,
+        )
+
+        assertThat(result).isEqualTo(100)
+        assertThat(attempted).containsExactly(
+            StickerGifEncodingPlan.steps[0],
+            StickerGifEncodingPlan.steps[1],
+        ).inOrder()
+    }
+
+    @Test
+    fun `budget - gives up when every step is too large`() {
+        val attempted = mutableListOf<GifEncodingStep>()
+
+        val result = firstResultWithinBudget(
+            encode = { step ->
+                attempted.add(step)
+                101
+            },
+            sizeOf = { it },
+            budgetBytes = 100,
+        )
+
+        assertThat(result).isNull()
+        assertThat(attempted).isEqualTo(StickerGifEncodingPlan.steps)
+    }
+
+    @Test
+    fun `budget - skips the steps which cannot be encoded`() {
+        val attempted = mutableListOf<GifEncodingStep>()
+
+        val result = firstResultWithinBudget(
+            encode = { step ->
+                attempted.add(step)
+                if (attempted.size < 3) null else 10
+            },
+            sizeOf = { it },
+            budgetBytes = 100,
+        )
+
+        assertThat(result).isEqualTo(10)
+        assertThat(attempted).hasSize(3)
+    }
 }

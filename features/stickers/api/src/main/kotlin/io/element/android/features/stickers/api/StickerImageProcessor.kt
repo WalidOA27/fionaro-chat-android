@@ -17,8 +17,9 @@ interface StickerImageProcessor {
      * Scales [inputFile] to fit in 512x512 px and encodes it as PNG.
      *
      * GIF and WebP images are passed through unchanged when they already fit in 512x512 px
-     * and are at most 1 MiB. Returns a failure when they do not fit, or when the image
-     * cannot be decoded.
+     * and are at most 1 MiB. A GIF which does not fit is decoded frame by frame and re-encoded
+     * as an animated sticker sized GIF. Returns a failure when an animated WebP does not fit,
+     * when a GIF cannot be re-encoded, or when an image cannot be decoded.
      */
     suspend fun process(inputFile: File, mimeType: String): Result<StickerImage>
 }

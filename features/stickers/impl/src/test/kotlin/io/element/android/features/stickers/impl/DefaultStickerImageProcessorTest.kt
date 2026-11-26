@@ -10,6 +10,7 @@ package io.element.android.features.stickers.impl
 import android.graphics.Bitmap
 import com.google.common.truth.Truth.assertThat
 import io.element.android.libraries.core.mimetype.MimeTypes
+import io.element.android.features.stickers.test.FakeStickerAnimationProcessor
 import io.element.android.tests.testutils.robolectric.RobolectricTest
 import io.element.android.tests.testutils.testCoroutineDispatchers
 import kotlinx.coroutines.test.TestScope
@@ -23,6 +24,8 @@ import java.io.File
 class DefaultStickerImageProcessorTest : RobolectricTest() {
     @get:Rule
     val temporaryFolder = TemporaryFolder()
+
+    private val animationProcessor = FakeStickerAnimationProcessor()
 
     @Test
     fun `process - scales a large image to fit in 512x512 and encodes it as PNG`() = runTest {
@@ -67,13 +70,28 @@ class DefaultStickerImageProcessorTest : RobolectricTest() {
     }
 
     @Test
-    fun `process - a GIF larger than 512px is rejected`() = runTest {
+    fun `process - a GIF larger than 512px is re-encoded as an animated sticker`() = runTest {
         val sut = createProcessor()
         val input = temporaryFolder.writePng("large.gif", width = 1024, height = 64)
 
         val result = sut.process(input, MimeTypes.Gif)
 
+        val sticker = result.getOrThrow()
+        assertThat(animationProcessor.imageCalls).hasSize(1)
+        assertThat(animationProcessor.imageCalls.single().imageFile).isEqualTo(input)
+        assertThat(animationProcessor.imageCalls.single().mimeType).isEqualTo(MimeTypes.Gif)
+        assertThat(sticker.mimeType).isEqualTo(MimeTypes.Gif)
+    }
+
+    @Test
+    fun `process - a large WebP is still rejected`() = runTest {
+        val sut = createProcessor()
+        val input = temporaryFolder.writePng("large.webp", width = 1024, height = 64)
+
+        val result = sut.process(input, MimeTypes.WebP)
+
         assertThat(result.isFailure).isTrue()
+        assertThat(animationProcessor.imageCalls).isEmpty()
     }
 
     @Test
@@ -88,6 +106,7 @@ class DefaultStickerImageProcessorTest : RobolectricTest() {
 
     private fun TestScope.createProcessor() = DefaultStickerImageProcessor(
         context = RuntimeEnvironment.getApplication(),
+        animationProcessor = animationProcessor,
         dispatchers = testCoroutineDispatchers(),
     )
 
