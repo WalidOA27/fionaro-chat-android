@@ -27,9 +27,9 @@ class FakeSoundStickerSender(
         imageMimeType: String,
         width: Int,
         height: Int,
-        audioFile: File,
-        audioMimeType: String,
-        durationMs: Long,
+        audioFile: File?,
+        audioMimeType: String?,
+        durationMs: Long?,
         body: String,
     ): Result<Unit> {
         lastParameters = Parameters(room, imageFile, imageMimeType, width, height, audioFile, audioMimeType, durationMs, body)
@@ -42,9 +42,9 @@ class FakeSoundStickerSender(
         val imageMimeType: String,
         val width: Int,
         val height: Int,
-        val audioFile: File,
-        val audioMimeType: String,
-        val durationMs: Long,
+        val audioFile: File?,
+        val audioMimeType: String?,
+        val durationMs: Long?,
         val body: String,
     )
 }

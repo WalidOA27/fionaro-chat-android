@@ -148,6 +148,71 @@ class DefaultSoundStickerSenderTest {
     }
 
     @Test
+    fun `send - without sound sends a sticker without the audio field`() = runTest {
+        joinedRoom.givenRoomInfo(aRoomInfo(isEncrypted = false))
+        matrixClient.uploadMediaResultLambda = { _, _ -> Result.success("mxc://matrix.org/image") }
+        val sut = createSender()
+
+        val result = sut.send(
+            room = joinedRoom,
+            imageFile = temporaryFolder.writeFile("sticker.png", imageBytes),
+            imageMimeType = MimeTypes.Png,
+            width = 256,
+            height = 256,
+            body = "A sticker",
+        )
+
+        assertThat(result.isSuccess).isTrue()
+        assertThat(matrixClient.uploadMediaCalls).hasSize(1)
+        val content = Json.parseToJsonElement(sendRawContent()).jsonObject
+        assertThat(content).doesNotContainKey("io.fionaro.sticker_audio")
+        assertThat(content.getValue("body").jsonPrimitive.content).isEqualTo("A sticker")
+        assertThat(content.getValue("info").jsonObject.getValue("mimetype").jsonPrimitive.content).isEqualTo(MimeTypes.Png)
+        assertThat(content.getValue("url").jsonPrimitive.content).isEqualTo("mxc://matrix.org/image")
+    }
+
+    @Test
+    fun `send - without sound encrypts the only media of an encrypted room`() = runTest {
+        joinedRoom.givenRoomInfo(aRoomInfo(isEncrypted = true))
+        matrixClient.uploadMediaResultLambda = { _, _ -> Result.success("mxc://matrix.org/image") }
+        val sut = createSender()
+
+        val result = sut.send(
+            room = joinedRoom,
+            imageFile = temporaryFolder.writeFile("sticker.png", imageBytes),
+            imageMimeType = MimeTypes.Png,
+            width = 512,
+            height = 512,
+        )
+
+        assertThat(result.isSuccess).isTrue()
+        assertThat(matrixClient.uploadMediaCalls.map { it.first }).containsExactly(MimeTypes.OctetStream)
+        val content = Json.parseToJsonElement(sendRawContent()).jsonObject
+        assertThat(content).doesNotContainKey("url")
+        assertThat(content.getValue("file").jsonObject.getValue("v").jsonPrimitive.content).isEqualTo("v2")
+        assertThat(content).doesNotContainKey("io.fionaro.sticker_audio")
+    }
+
+    @Test
+    fun `send - rejects an audio file without its mime type`() = runTest {
+        joinedRoom.givenRoomInfo(aRoomInfo(isEncrypted = false))
+        val sut = createSender()
+
+        val result = sut.send(
+            room = joinedRoom,
+            imageFile = temporaryFolder.writeFile("sticker.png", imageBytes),
+            imageMimeType = MimeTypes.Png,
+            width = 512,
+            height = 512,
+            audioFile = temporaryFolder.writeFile("sound.ogg", audioBytes),
+        )
+
+        assertThat(result.exceptionOrNull()).isInstanceOf(IllegalArgumentException::class.java)
+        assertThat(matrixClient.uploadMediaCalls).isEmpty()
+        assertThat(sentEvents).isEmpty()
+    }
+
+    @Test
     fun `send - rejects an audio longer than 10 seconds`() = runTest {
         joinedRoom.givenRoomInfo(aRoomInfo(isEncrypted = false))
         val sut = createSender()

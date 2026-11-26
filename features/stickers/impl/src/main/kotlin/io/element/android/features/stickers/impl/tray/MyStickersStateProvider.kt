@@ -15,7 +15,13 @@ open class MyStickersStateProvider : PreviewParameterProvider<MyStickersState> {
     override val values: Sequence<MyStickersState>
         get() = sequenceOf(
             aMyStickersState(),
-            aMyStickersState(stickers = listOf(aSoundSticker("1"), aSoundSticker("2"), aSoundSticker("3"))),
+            aMyStickersState(
+                stickers = listOf(
+                    aSoundSticker("1"),
+                    aSoundSticker("2", withSound = false),
+                    aSoundSticker("3"),
+                ),
+            ),
             aMyStickersState(
                 stickers = listOf(aSoundSticker("1")),
                 sendingStickerId = "1",
@@ -27,15 +33,15 @@ open class MyStickersStateProvider : PreviewParameterProvider<MyStickersState> {
         )
 }
 
-fun aSoundSticker(id: String) = SoundSticker(
+fun aSoundSticker(id: String, withSound: Boolean = true) = SoundSticker(
     id = id,
     imagePath = "/tmp/element-sticker.png",
     imageMimeType = "image/png",
     width = 512,
     height = 512,
-    audioPath = "/tmp/element-sticker.ogg",
-    audioMimeType = "audio/ogg",
-    durationMs = 3200,
+    audioPath = if (withSound) "/tmp/element-sticker.ogg" else null,
+    audioMimeType = if (withSound) "audio/ogg" else null,
+    durationMs = if (withSound) 3200 else null,
     body = "Sticker $id",
     createdAt = id.toLongOrNull() ?: 0L,
 )

@@ -8,7 +8,7 @@
 package io.element.android.features.stickers.api
 
 /**
- * A sound sticker saved locally in "My stickers".
+ * A sticker saved locally in "My stickers". The sound is optional.
  */
 data class SoundSticker(
     val id: String,
@@ -16,9 +16,9 @@ data class SoundSticker(
     val imageMimeType: String,
     val width: Int,
     val height: Int,
-    val audioPath: String,
-    val audioMimeType: String,
-    val durationMs: Long,
+    val audioPath: String?,
+    val audioMimeType: String?,
+    val durationMs: Long?,
     val body: String,
     val createdAt: Long,
 )

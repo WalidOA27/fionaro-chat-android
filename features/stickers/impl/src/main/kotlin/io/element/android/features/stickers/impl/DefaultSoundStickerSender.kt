@@ -42,16 +42,22 @@ class DefaultSoundStickerSender(
         imageMimeType: String,
         width: Int,
         height: Int,
-        audioFile: File,
-        audioMimeType: String,
-        durationMs: Long,
+        audioFile: File?,
+        audioMimeType: String?,
+        durationMs: Long?,
         body: String,
     ): Result<Unit> = withContext(dispatchers.io) {
         runCatchingExceptions {
-            validate(width = width, height = height, durationMs = durationMs, body = body)
+            validate(
+                width = width,
+                height = height,
+                audioFile = audioFile,
+                audioMimeType = audioMimeType,
+                durationMs = durationMs,
+                body = body,
+            )
 
             val imageBytes = imageFile.readBytes()
-            val audioBytes = audioFile.readBytes()
             // When the encryption state is unknown, prefer encrypting: an EncryptedFile object is
             // valid in any room, while uploading plaintext would silently break the E2EE promise.
             val shouldEncrypt = room.info().isEncrypted != false
@@ -61,11 +67,15 @@ class DefaultSoundStickerSender(
                 mimeType = imageMimeType,
                 encrypt = shouldEncrypt,
             )
-            val uploadedAudio = upload(
-                bytes = audioBytes,
-                mimeType = audioMimeType,
-                encrypt = shouldEncrypt,
-            )
+            val uploadedAudio = if (audioFile != null && audioMimeType != null) {
+                upload(
+                    bytes = audioFile.readBytes(),
+                    mimeType = audioMimeType,
+                    encrypt = shouldEncrypt,
+                )
+            } else {
+                null
+            }
 
             val contentJson = buildStickerContentJson(
                 body = body.ifBlank { DEFAULT_STICKER_BODY },
@@ -102,18 +112,29 @@ class DefaultSoundStickerSender(
         )
     }
 
-    private fun validate(width: Int, height: Int, durationMs: Long, body: String) {
+    private fun validate(
+        width: Int,
+        height: Int,
+        audioFile: File?,
+        audioMimeType: String?,
+        durationMs: Long?,
+        body: String,
+    ) {
         require(width in 1..MAX_STICKER_IMAGE_SIZE) {
             "Sticker width must be between 1 and $MAX_STICKER_IMAGE_SIZE px, was $width"
         }
         require(height in 1..MAX_STICKER_IMAGE_SIZE) {
             "Sticker height must be between 1 and $MAX_STICKER_IMAGE_SIZE px, was $height"
         }
-        require(durationMs in 1..MAX_STICKER_AUDIO_DURATION_MS) {
-            "Sticker sound duration must be between 1 and $MAX_STICKER_AUDIO_DURATION_MS ms, was $durationMs"
-        }
         require(body.length <= MAX_STICKER_BODY_LENGTH) {
             "Sticker body must be at most $MAX_STICKER_BODY_LENGTH characters"
+        }
+        // The sound is optional, but it must be complete when one of its parts is provided.
+        if (audioFile == null && audioMimeType == null && durationMs == null) return
+        require(audioFile != null) { "Sticker sound needs a file" }
+        require(!audioMimeType.isNullOrBlank()) { "Sticker sound needs a mime type" }
+        require(durationMs != null && durationMs in 1..MAX_STICKER_AUDIO_DURATION_MS) {
+            "Sticker sound duration must be between 1 and $MAX_STICKER_AUDIO_DURATION_MS ms, was $durationMs"
         }
     }
 
@@ -142,8 +163,8 @@ internal fun buildStickerContentJson(
     image: UploadedStickerMedia,
     imageWidth: Int,
     imageHeight: Int,
-    audio: UploadedStickerMedia,
-    audioDurationMs: Long,
+    audio: UploadedStickerMedia?,
+    audioDurationMs: Long?,
 ): String {
     return buildJsonObject {
         put("body", body)
@@ -154,11 +175,13 @@ internal fun buildStickerContentJson(
             put("h", imageHeight)
         }
         image.putMediaSource(this)
-        putJsonObject(STICKER_AUDIO_CONTENT_KEY) {
-            audio.putMediaSource(this)
-            put("mimetype", audio.mimeType)
-            put("size", audio.size)
-            put("duration", audioDurationMs)
+        if (audio != null && audioDurationMs != null) {
+            putJsonObject(STICKER_AUDIO_CONTENT_KEY) {
+                audio.putMediaSource(this)
+                put("mimetype", audio.mimeType)
+                put("size", audio.size)
+                put("duration", audioDurationMs)
+            }
         }
     }.toString()
 }

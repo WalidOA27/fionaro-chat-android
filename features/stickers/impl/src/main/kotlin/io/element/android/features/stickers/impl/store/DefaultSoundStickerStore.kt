@@ -49,18 +49,23 @@ class DefaultSoundStickerStore(
         imageMimeType: String,
         width: Int,
         height: Int,
-        audioFile: File,
-        audioMimeType: String,
-        durationMs: Long,
+        audioFile: File?,
+        audioMimeType: String?,
+        durationMs: Long?,
         body: String,
     ): Result<SoundSticker> = withContext(dispatchers.io) {
         runCatchingExceptions {
             val id = UUID.randomUUID().toString()
             val directory = File(stickersDirectory(), id).apply { mkdirs() }
             val imageTarget = File(directory, "image.${extensionOf(imageMimeType)}")
-            val audioTarget = File(directory, "audio.${extensionOf(audioMimeType)}")
             imageFile.copyTo(target = imageTarget, overwrite = true)
-            audioFile.copyTo(target = audioTarget, overwrite = true)
+            val audioTarget = if (audioFile != null && audioMimeType != null) {
+                File(directory, "audio.${extensionOf(audioMimeType)}").also { target ->
+                    audioFile.copyTo(target = target, overwrite = true)
+                }
+            } else {
+                null
+            }
 
             val sticker = SoundSticker(
                 id = id,
@@ -68,7 +73,7 @@ class DefaultSoundStickerStore(
                 imageMimeType = imageMimeType,
                 width = width,
                 height = height,
-                audioPath = audioTarget.absolutePath,
+                audioPath = audioTarget?.absolutePath,
                 audioMimeType = audioMimeType,
                 durationMs = durationMs,
                 body = body,
@@ -156,9 +161,9 @@ private data class StoredSoundSticker(
     val imageMimeType: String,
     val width: Int,
     val height: Int,
-    val audioPath: String,
-    val audioMimeType: String,
-    val durationMs: Long,
+    val audioPath: String? = null,
+    val audioMimeType: String? = null,
+    val durationMs: Long? = null,
     val body: String,
     val createdAt: Long,
 ) {

@@ -59,7 +59,7 @@ class MyStickersPresenter(
                 imageMimeType = sticker.imageMimeType,
                 width = sticker.width,
                 height = sticker.height,
-                audioFile = File(sticker.audioPath),
+                audioFile = sticker.audioPath?.let(::File),
                 audioMimeType = sticker.audioMimeType,
                 durationMs = sticker.durationMs,
                 body = sticker.body,

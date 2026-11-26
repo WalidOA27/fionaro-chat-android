@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import java.io.File
 
 /**
- * Local, per-app-install storage of sound stickers.
+ * Local, per-app-install storage of stickers and their optional sound.
  */
 interface SoundStickerStore {
     /**
@@ -29,9 +29,9 @@ interface SoundStickerStore {
         imageMimeType: String,
         width: Int,
         height: Int,
-        audioFile: File,
-        audioMimeType: String,
-        durationMs: Long,
+        audioFile: File? = null,
+        audioMimeType: String? = null,
+        durationMs: Long? = null,
         body: String,
     ): Result<SoundSticker>
 

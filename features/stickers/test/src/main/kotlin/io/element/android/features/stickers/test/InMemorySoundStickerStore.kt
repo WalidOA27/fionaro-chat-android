@@ -36,9 +36,9 @@ class InMemorySoundStickerStore(
         imageMimeType: String,
         width: Int,
         height: Int,
-        audioFile: File,
-        audioMimeType: String,
-        durationMs: Long,
+        audioFile: File?,
+        audioMimeType: String?,
+        durationMs: Long?,
         body: String,
     ): Result<SoundSticker> {
         addCalls.add(
@@ -62,9 +62,9 @@ class InMemorySoundStickerStore(
         val imageMimeType: String,
         val width: Int,
         val height: Int,
-        val audioFile: File,
-        val audioMimeType: String,
-        val durationMs: Long,
+        val audioFile: File?,
+        val audioMimeType: String?,
+        val durationMs: Long?,
         val body: String,
     )
 }
@@ -72,7 +72,7 @@ class InMemorySoundStickerStore(
 fun aSoundSticker(
     id: String = "sticker-id",
     imagePath: String = "/tmp/sticker.png",
-    audioPath: String = "/tmp/sticker.ogg",
+    audioPath: String? = "/tmp/sticker.ogg",
     body: String = "Sticker",
 ) = SoundSticker(
     id = id,
@@ -81,8 +81,8 @@ fun aSoundSticker(
     width = 512,
     height = 512,
     audioPath = audioPath,
-    audioMimeType = "audio/ogg",
-    durationMs = 3200,
+    audioMimeType = if (audioPath == null) null else "audio/ogg",
+    durationMs = if (audioPath == null) null else 3200,
     body = body,
     createdAt = 0,
 )

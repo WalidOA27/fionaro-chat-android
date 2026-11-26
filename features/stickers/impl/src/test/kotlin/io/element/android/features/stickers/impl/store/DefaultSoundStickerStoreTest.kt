@@ -78,7 +78,7 @@ class DefaultSoundStickerStoreTest : RobolectricTest() {
         assertThat(result.isSuccess).isTrue()
         assertThat(sut.stickers.first()).isEmpty()
         assertThat(File(sticker.imagePath).exists()).isFalse()
-        assertThat(File(sticker.audioPath).exists()).isFalse()
+        assertThat(File(sticker.audioPath!!).exists()).isFalse()
     }
 
     @Test
@@ -93,6 +93,29 @@ class DefaultSoundStickerStoreTest : RobolectricTest() {
         // The oldest one has been evicted, files included.
         assertThat(stored.map { it.id }).doesNotContain(stickers.first().id)
         assertThat(File(stickers.first().imagePath).exists()).isFalse()
+    }
+
+    @Test
+    fun `add - saves a sticker without sound`() = runTest {
+        val sut = createStore()
+
+        val sticker = sut.add(
+            imageFile = temporaryFolder.writeFile("silent.png", "image".toByteArray()),
+            imageMimeType = "image/png",
+            width = 512,
+            height = 512,
+            audioFile = null,
+            audioMimeType = null,
+            durationMs = null,
+            body = "Silent",
+        ).getOrThrow()
+
+        assertThat(sticker.audioPath).isNull()
+        assertThat(sticker.audioMimeType).isNull()
+        assertThat(sticker.durationMs).isNull()
+        assertThat(File(sticker.imagePath).exists()).isTrue()
+        assertThat(File(sticker.imagePath).parentFile?.listFiles()?.toList()).hasSize(1)
+        assertThat(sut.stickers.first()).containsExactly(sticker)
     }
 
     @Test

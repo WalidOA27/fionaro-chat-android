@@ -71,6 +71,26 @@ class MyStickersPresenterTest {
     }
 
     @Test
+    fun `present - sending a sticker without sound passes no audio`() = runTest {
+        val silentSticker = aSoundSticker(id = "silent-sticker", audioPath = null)
+        val silentStore = InMemorySoundStickerStore(initialStickers = listOf(silentSticker))
+        val presenter = createPresenter(silentStore)
+
+        presenter.test {
+            awaitItem().eventSink(MyStickersEvent.Send(silentSticker.id))
+            advanceUntilIdle()
+
+            val parameters = sender.lastParameters
+            assertThat(parameters?.imageFile).isEqualTo(File(silentSticker.imagePath))
+            assertThat(parameters?.audioFile).isNull()
+            assertThat(parameters?.audioMimeType).isNull()
+            assertThat(parameters?.durationMs).isNull()
+            navigateUp.assertions().isCalledOnce()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `present - a send failure shows an error and keeps the tray open`() = runTest {
         sender.givenResult(Result.failure(IllegalStateException("Network error")))
         val presenter = createPresenter()
@@ -131,9 +151,9 @@ class MyStickersPresenterTest {
         }
     }
 
-    private fun TestScope.createPresenter() = MyStickersPresenter(
+    private fun TestScope.createPresenter(stickerStore: InMemorySoundStickerStore? = null) = MyStickersPresenter(
         room = FakeJoinedRoom(),
-        soundStickerStore = store,
+        soundStickerStore = stickerStore ?: store,
         soundStickerSender = sender,
         snackbarDispatcher = SnackbarDispatcher(),
         navigateUp = { navigateUp() },
