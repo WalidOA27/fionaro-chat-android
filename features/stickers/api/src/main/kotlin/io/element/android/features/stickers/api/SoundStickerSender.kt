@@ -31,6 +31,7 @@ interface SoundStickerSender {
      * @param audioMimeType the mime type of the sound (typically `audio/ogg`), required with `audioFile`.
      * @param durationMs the duration of the sound in milliseconds, at most 10 000, required with `audioFile`.
      * @param body the alt text of the sticker.
+     * @param threadRootEventId when set, the sticker is sent in this thread instead of the main timeline.
      */
     suspend fun send(
         room: JoinedRoom,
@@ -42,9 +43,6 @@ interface SoundStickerSender {
         audioMimeType: String? = null,
         durationMs: Long? = null,
         body: String = "Sticker",
-        /**
-         * When set, the sticker is sent as a reply in this thread instead of the main timeline.
-         */
         threadRootEventId: EventId? = null,
     ): Result<Unit>
 }
