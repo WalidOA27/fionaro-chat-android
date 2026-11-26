@@ -308,6 +308,24 @@ class AndroidMediaPreProcessorTest : RobolectricTest() {
     }
 
     @Test
+    fun `a photo whose original file is smaller than the processed result is sent unchanged`() = runTest {
+        val file = createTestImageFile("small_photo.jpg", width = 640, height = 480, quality = 40)
+        val originalSize = file.length()
+        val originalBitmap = BitmapFactory.decodeFile(file.path)
+
+        val info = processGeneratedImage(file, MimeTypes.Jpeg) as MediaUploadInfo.Image
+
+        assertThat(info.imageInfo.mimetype).isEqualTo(MimeTypes.Jpeg)
+        assertThat(info.imageInfo.width).isEqualTo(640)
+        assertThat(info.imageInfo.height).isEqualTo(480)
+        assertThat(info.file.name).isEqualTo("small_photo.jpg")
+        assertThat(info.imageInfo.size).isEqualTo(info.file.length())
+        // The original image is sent as is (apart from the metadata stripping), it's not re-encoded.
+        assertThat(info.file.length()).isAtMost(originalSize + 1_024)
+        assertThat(BitmapFactory.decodeFile(info.file.path).sameAs(originalBitmap)).isTrue()
+    }
+
+    @Test
     fun `an opaque screenshot is converted to a 2048px JPEG`() = runTest {
         val file = createTestImageFile(
             fileName = "Screenshot_20260101.png",

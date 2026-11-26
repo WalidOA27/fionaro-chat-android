@@ -18,6 +18,7 @@ import dev.zacsweers.metro.ContributesBinding
 import io.element.android.libraries.androidutils.file.TemporaryUriDeleter
 import io.element.android.libraries.androidutils.file.createTmpFile
 import io.element.android.libraries.androidutils.file.getFileName
+import io.element.android.libraries.androidutils.file.getFileSize
 import io.element.android.libraries.androidutils.file.safeRenameTo
 import io.element.android.libraries.androidutils.hash.hash
 import io.element.android.libraries.androidutils.media.runAndRelease
@@ -197,7 +198,7 @@ class AndroidMediaPreProcessor(
                 }
                 .getOrNull()
 
-            if (compressionResult == null) {
+            if (compressionResult == null || shouldKeepOriginalImage(uri, orientation, maxLongestSide, compressionResult.size)) {
                 return createUploadInfoFromOriginalImage(uri, mimeType)
             }
 
@@ -275,6 +276,15 @@ class AndroidMediaPreProcessor(
             height = height,
             thumbnailResult = thumbnailResult,
         )
+    }
+
+    /**
+     * Returns true if the original image is already within the size limit and re-encoding it wouldn't make it smaller.
+     */
+    private fun shouldKeepOriginalImage(uri: Uri, orientation: Int, maxLongestSide: Int, processedSize: Long): Boolean {
+        val originalSize = context.getFileSize(uri)
+        val (width, height) = extractOrientedImageDimensions(uri, orientation)
+        return maxOf(width, height) <= maxLongestSide && originalSize <= processedSize
     }
 
     private suspend fun processVideo(uri: Uri, mimeType: String?, videoCompressionPreset: VideoCompressionPreset): MediaUploadInfo {
@@ -423,6 +433,17 @@ class AndroidMediaPreProcessor(
         return orientedImageDimensions(
             rawWidth = rawWidth,
             rawHeight = rawHeight,
+            orientation = orientation,
+        )
+    }
+
+    private fun extractOrientedImageDimensions(uri: Uri, orientation: Int): Pair<Long, Long> {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+
+        return orientedImageDimensions(
+            rawWidth = options.outWidth.toLong(),
+            rawHeight = options.outHeight.toLong(),
             orientation = orientation,
         )
     }
