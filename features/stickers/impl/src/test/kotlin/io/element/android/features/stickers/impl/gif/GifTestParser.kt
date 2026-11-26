@@ -13,9 +13,33 @@ internal data class ParsedGif(
     val loopCount: Int?,
     val frames: List<ParsedFrame>,
 ) {
+    /**
+     * Rebuilds the full canvas after each frame, applying the disposal methods and transparency.
+     */
+    fun compositedFrames(): List<IntArray> {
+        val canvas = IntArray(width * height)
+        val result = ArrayList<IntArray>(frames.size)
+        var previousDisposal = 1
+        for (frame in frames) {
+            if (previousDisposal == 2) canvas.fill(0)
+            for (y in 0 until frame.height) {
+                for (x in 0 until frame.width) {
+                    val index = frame.decodedIndices[y * frame.width + x]
+                    val isTransparent = frame.hasTransparency && index == frame.transparentColorIndex
+                    if (!isTransparent) {
+                        val color = frame.palette.getOrElse(index) { 0 }
+                        canvas[(frame.top + y) * width + frame.left + x] = color
+                    }
+                }
+            }
+            result.add(canvas.copyOf())
+            previousDisposal = frame.disposalMethod
+        }
+        return result
+    }
+
     companion object {
-        fun parse(bytes: ByteArray): ParsedGif {
-            var index = 6 // header
+        fun parse(bytes: ByteArray): ParsedGif {            var index = 6 // header
             val width = bytes.uint16(index)
             val height = bytes.uint16(index + 2)
             index += 7 // logical screen descriptor

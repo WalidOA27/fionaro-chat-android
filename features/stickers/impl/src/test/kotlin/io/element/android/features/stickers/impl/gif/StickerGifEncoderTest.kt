@@ -156,5 +156,84 @@ class StickerGifEncoderTest {
         }
     }
 
+    @Test
+    fun `encode - an opaque frame only writes the rectangle which changed`() {
+        val width = 8
+        val height = 8
+        val first = solidFrame(width, height, red)
+        val second = first.copyOf()
+        second[2 * width + 3] = blue
+        second[4 * width + 6] = blue
+        val encoder = StickerGifEncoder(width, height)
+
+        encoder.addFrame(first, delayCentiseconds = 8)
+        encoder.addFrame(second, delayCentiseconds = 10)
+        val parsed = ParsedGif.parse(encoder.finish())
+
+        val changed = parsed.frames[1]
+        assertThat(changed.left).isEqualTo(3)
+        assertThat(changed.top).isEqualTo(2)
+        assertThat(changed.width).isEqualTo(4)
+        assertThat(changed.height).isEqualTo(3)
+        assertThat(changed.disposalMethod).isEqualTo(1)
+        assertThat(changed.delayCentiseconds).isEqualTo(10)
+        // The unchanged pixels inside the rectangle are re-encoded with the full frame.
+        assertThat(parsed.compositedFrames()[1].toList()).isEqualTo(second.toList())
+    }
+
+    @Test
+    fun `encode - a transparent frame is written in full and resets the delta chain`() {
+        val transparent = 0x00FF0000
+        val encoder = StickerGifEncoder(width = 2, height = 2)
+
+        encoder.addFrame(solidFrame(2, 2, red), delayCentiseconds = 8)
+        encoder.addFrame(IntArray(4) { transparent }, delayCentiseconds = 10)
+        encoder.addFrame(solidFrame(2, 2, blue), delayCentiseconds = 12)
+        val parsed = ParsedGif.parse(encoder.finish())
+
+        val transparentFrame = parsed.frames[1]
+        assertThat(transparentFrame.left).isEqualTo(0)
+        assertThat(transparentFrame.top).isEqualTo(0)
+        assertThat(transparentFrame.width).isEqualTo(2)
+        assertThat(transparentFrame.height).isEqualTo(2)
+        assertThat(transparentFrame.hasTransparency).isTrue()
+        assertThat(transparentFrame.disposalMethod).isEqualTo(2)
+        assertThat(transparentFrame.decodedIndices).containsExactly(255, 255, 255, 255)
+
+        // The canvas is cleared after a transparent frame, so the next opaque frame cannot be a delta.
+        val followingFrame = parsed.frames[2]
+        assertThat(followingFrame.left).isEqualTo(0)
+        assertThat(followingFrame.top).isEqualTo(0)
+        assertThat(followingFrame.width).isEqualTo(2)
+        assertThat(followingFrame.height).isEqualTo(2)
+        assertThat(followingFrame.disposalMethod).isEqualTo(1)
+        assertThat(parsed.compositedFrames()[2].toList()).containsExactly(blue, blue, blue, blue)
+    }
+
+    @Test
+    fun `encode - an unchanged opaque frame keeps its delay without rewriting the image`() {
+        val frame = solidFrame(4, 4, red)
+        val encoder = StickerGifEncoder(width = 4, height = 4)
+
+        encoder.addFrame(frame, delayCentiseconds = 8)
+        encoder.addFrame(frame, delayCentiseconds = 10)
+        val parsed = ParsedGif.parse(encoder.finish())
+
+        assertThat(parsed.frames).hasSize(2)
+        assertThat(parsed.frames.map { it.delayCentiseconds }).containsExactly(8, 10).inOrder()
+        assertThat(parsed.frames[1].pixelCount).isEqualTo(1)
+        assertThat(parsed.compositedFrames()[1].toList()).isEqualTo(frame.toList())
+    }
+
+    @Test
+    fun `encode - writes the smallest possible local color table`() {
+        val encoder = StickerGifEncoder(width = 4, height = 4)
+
+        encoder.addFrame(solidFrame(4, 4, red), delayCentiseconds = 8)
+        val frame = ParsedGif.parse(encoder.finish()).frames.single()
+
+        assertThat(frame.palette.toList()).hasSize(2)
+    }
+
     private fun solidFrame(width: Int, height: Int, color: Int) = IntArray(width * height) { color }
 }
