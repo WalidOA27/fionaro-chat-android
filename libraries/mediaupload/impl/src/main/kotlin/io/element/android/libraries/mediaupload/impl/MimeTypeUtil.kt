@@ -18,7 +18,16 @@ fun mimeTypeToCompressFormat(mimeType: String) = when (mimeType) {
 
 fun mimeTypeToCompressFileExtension(mimeType: String) = when (mimeType) {
     MimeTypes.Png -> "png"
-    else -> "jpeg"
+    else -> "jpg"
+}
+
+/**
+ * Returns the file extension matching the actual format of an image with [mimeType], or null if the app can't re-encode it.
+ */
+fun mimeTypeToOutputFileExtension(mimeType: String): String? = when (mimeType) {
+    MimeTypes.Png -> "png"
+    MimeTypes.Jpeg -> "jpg"
+    else -> null
 }
 
 fun mimeTypeToThumbnailMimeType(mimeType: String) = when (mimeType) {

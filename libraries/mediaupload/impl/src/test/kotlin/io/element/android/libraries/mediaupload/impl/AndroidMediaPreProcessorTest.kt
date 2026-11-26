@@ -9,6 +9,9 @@
 package io.element.android.libraries.mediaupload.impl
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import androidx.core.net.toUri
@@ -70,6 +73,7 @@ class AndroidMediaPreProcessorTest : RobolectricTest() {
         mediaOptimizationConfig: MediaOptimizationConfig,
         sdkIntVersion: Int = Build.VERSION_CODES.P,
         deleteOriginal: Boolean = false,
+        expectedFileName: String = asset.filename,
     ): MediaUploadInfo {
         val context = InstrumentationRegistry.getInstrumentation().context
         val deleteCallback = lambdaRecorder<Uri?, Unit> {}
@@ -86,9 +90,48 @@ class AndroidMediaPreProcessorTest : RobolectricTest() {
             mediaOptimizationConfig = mediaOptimizationConfig,
         )
         val data = result.getOrThrow()
-        assertThat(data.file.path).endsWith(asset.filename)
+        assertThat(data.file.path).endsWith(expectedFileName)
         deleteCallback.assertions().isCalledExactly(if (deleteOriginal) 0 else 1)
         return data
+    }
+
+    private suspend fun TestScope.processGeneratedImage(
+        file: File,
+        mimeType: String,
+        compressImages: Boolean = true,
+    ): MediaUploadInfo {
+        val context = InstrumentationRegistry.getInstrumentation().context
+        val deleteCallback = lambdaRecorder<Uri?, Unit> {}
+        val sut = createAndroidMediaPreProcessor(
+            context = context,
+            sdkIntVersion = Build.VERSION_CODES.Q,
+            temporaryUriDeleter = FakeTemporaryUriDeleter(deleteCallback),
+        )
+        val result = sut.process(
+            uri = file.toUri(),
+            mimeType = mimeType,
+            deleteOriginal = false,
+            mediaOptimizationConfig = MediaOptimizationConfig(
+                compressImages = compressImages,
+                videoCompressionPreset = VideoCompressionPreset.STANDARD,
+            ),
+        )
+        deleteCallback.assertions().isCalledExactly(1)
+        return result.getOrThrow()
+    }
+
+    private fun createTestImageFile(
+        fileName: String,
+        width: Int,
+        height: Int,
+        format: Bitmap.CompressFormat = Bitmap.CompressFormat.JPEG,
+        quality: Int = 90,
+        transparentRect: Rect? = null,
+    ): File {
+        val context = InstrumentationRegistry.getInstrumentation().context
+        val dir = File(context.cacheDir, "media_pre_processor_test_inputs").apply { mkdirs() }
+        val bitmap = createTestBitmap(width = width, height = height, transparentRect = transparentRect)
+        return File(dir, fileName).writeTestImage(bitmap = bitmap, format = format, quality = quality)
     }
 
     @Test
@@ -125,20 +168,23 @@ class AndroidMediaPreProcessorTest : RobolectricTest() {
                 videoCompressionPreset = VideoCompressionPreset.STANDARD,
             ),
             sdkIntVersion = Build.VERSION_CODES.Q,
+            expectedFileName = "image.jpg",
         )
         val info = mediaUploadInfo as MediaUploadInfo.Image
         assertThat(info.thumbnailFile).isNull()
+        // The PNG asset has an alpha channel but no fully transparent pixel, so it's encoded as JPEG.
         assertThat(info.imageInfo).isEqualTo(
             ImageInfo(
                 height = assetImagePng.height,
                 width = assetImagePng.width,
-                mimetype = assetImagePng.mimeType,
-                size = 2_026_433,
+                mimetype = MimeTypes.Jpeg,
+                size = info.file.length(),
                 thumbnailInfo = null,
                 thumbnailSource = null,
                 blurhash = null,
             )
         )
+        assertThat(info.file.hasJpegMagicBytes()).isTrue()
     }
 
     @Test
@@ -228,20 +274,139 @@ class AndroidMediaPreProcessorTest : RobolectricTest() {
                 videoCompressionPreset = VideoCompressionPreset.STANDARD,
             ),
             sdkIntVersion = Build.VERSION_CODES.Q,
+            expectedFileName = "image.jpeg",
         )
         val info = mediaUploadInfo as MediaUploadInfo.Image
         assertThat(info.thumbnailFile).isNull()
         assertThat(info.imageInfo).isEqualTo(
             ImageInfo(
-                height = 979,
-                width = 3_006,
+                height = 521,
+                width = 1_600,
                 mimetype = MimeTypes.Jpeg,
-                size = 84_845,
+                size = info.file.length(),
                 thumbnailInfo = null,
                 thumbnailSource = null,
                 blurhash = null,
             )
         )
+        assertThat(info.file.hasJpegMagicBytes()).isTrue()
+    }
+
+    @Test
+    fun `a large photo is downscaled to 1600px and re-encoded as JPEG`() = runTest {
+        val file = createTestImageFile("large_photo.jpeg", width = 2400, height = 1600, quality = 90)
+
+        val info = processGeneratedImage(file, MimeTypes.Jpeg) as MediaUploadInfo.Image
+
+        assertThat(info.imageInfo.mimetype).isEqualTo(MimeTypes.Jpeg)
+        assertThat(info.imageInfo.width).isEqualTo(1600)
+        assertThat(info.imageInfo.height).isEqualTo(1066)
+        assertThat(info.file.name).isEqualTo("large_photo.jpeg")
+        assertThat(info.file.hasJpegMagicBytes()).isTrue()
+        assertThat(info.imageInfo.size).isEqualTo(info.file.length())
+        assertThat(info.file.longestSide()).isEqualTo(1600)
+    }
+
+    @Test
+    fun `a photo whose original file is smaller than the processed result is sent unchanged`() = runTest {
+        val file = createTestImageFile("small_photo.jpg", width = 640, height = 480, quality = 40)
+        val originalSize = file.length()
+        val originalBitmap = BitmapFactory.decodeFile(file.path)
+
+        val info = processGeneratedImage(file, MimeTypes.Jpeg) as MediaUploadInfo.Image
+
+        assertThat(info.imageInfo.mimetype).isEqualTo(MimeTypes.Jpeg)
+        assertThat(info.imageInfo.width).isEqualTo(640)
+        assertThat(info.imageInfo.height).isEqualTo(480)
+        assertThat(info.file.name).isEqualTo("small_photo.jpg")
+        assertThat(info.imageInfo.size).isEqualTo(info.file.length())
+        // The original image is sent as is (apart from the metadata stripping), it's not re-encoded.
+        assertThat(info.file.length()).isAtMost(originalSize + 1_024)
+        assertThat(BitmapFactory.decodeFile(info.file.path).sameAs(originalBitmap)).isTrue()
+    }
+
+    @Test
+    fun `an opaque screenshot is converted to a 2048px JPEG`() = runTest {
+        val file = createTestImageFile(
+            fileName = "Screenshot_20260101.png",
+            width = 2200,
+            height = 1200,
+            format = Bitmap.CompressFormat.PNG,
+        )
+
+        val info = processGeneratedImage(file, MimeTypes.Png) as MediaUploadInfo.Image
+
+        assertThat(info.imageInfo.mimetype).isEqualTo(MimeTypes.Jpeg)
+        assertThat(info.file.name).isEqualTo("Screenshot_20260101.jpg")
+        assertThat(info.file.hasJpegMagicBytes()).isTrue()
+        assertThat(info.imageInfo.width).isEqualTo(2048)
+        assertThat(info.imageInfo.height).isEqualTo(1117)
+        assertThat(info.file.longestSide()).isEqualTo(2048)
+    }
+
+    @Test
+    fun `a screenshot with transparent pixels stays a PNG downscaled to 2048px`() = runTest {
+        val file = createTestImageFile(
+            fileName = "transparent_screenshot.png",
+            width = 2200,
+            height = 1200,
+            format = Bitmap.CompressFormat.PNG,
+            transparentRect = Rect(100, 100, 600, 500),
+        )
+
+        val info = processGeneratedImage(file, MimeTypes.Png) as MediaUploadInfo.Image
+
+        assertThat(info.imageInfo.mimetype).isEqualTo(MimeTypes.Png)
+        assertThat(info.file.name).isEqualTo("transparent_screenshot.png")
+        assertThat(info.file.hasPngMagicBytes()).isTrue()
+        assertThat(info.file.longestSide()).isEqualTo(2048)
+        assertThat(info.imageInfo.width).isEqualTo(2048)
+        assertThat(info.imageInfo.height).isEqualTo(1117)
+    }
+
+    @Test
+    fun `an image labelled as HEIC but re-encoded as JPEG is reported as JPEG`() = runTest {
+        val file = createTestImageFile("IMG_1234.HEIC", width = 2400, height = 1600, quality = 90)
+
+        val info = processGeneratedImage(file, "image/heic") as MediaUploadInfo.Image
+
+        assertThat(info.imageInfo.mimetype).isEqualTo(MimeTypes.Jpeg)
+        assertThat(info.file.name).isEqualTo("IMG_1234.jpg")
+        assertThat(info.file.hasJpegMagicBytes()).isTrue()
+        assertThat(info.file.longestSide()).isEqualTo(1600)
+    }
+
+    @Test
+    fun `an image with an EXIF rotation is downscaled after being rotated`() = runTest {
+        val file = createTestImageFile("rotated.jpeg", width = 2400, height = 1600, quality = 90)
+        ExifInterface(file).apply {
+            setAttribute(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_ROTATE_90.toString())
+            saveAttributes()
+        }
+
+        val info = processGeneratedImage(file, MimeTypes.Jpeg) as MediaUploadInfo.Image
+
+        assertThat(info.imageInfo.mimetype).isEqualTo(MimeTypes.Jpeg)
+        assertThat(info.imageInfo.width).isEqualTo(1066)
+        assertThat(info.imageInfo.height).isEqualTo(1600)
+    }
+
+    @Test
+    fun `when image optimisation is disabled the image is sent unchanged`() = runTest {
+        val file = createTestImageFile("uncompressed.jpeg", width = 2400, height = 1600, quality = 90)
+        val originalSize = file.length()
+        val originalBitmap = BitmapFactory.decodeFile(file.path)
+
+        val info = processGeneratedImage(file, MimeTypes.Jpeg, compressImages = false) as MediaUploadInfo.Image
+
+        assertThat(info.imageInfo.mimetype).isEqualTo(MimeTypes.Jpeg)
+        assertThat(info.imageInfo.width).isEqualTo(2400)
+        assertThat(info.imageInfo.height).isEqualTo(1600)
+        assertThat(info.file.name).isEqualTo("uncompressed.jpeg")
+        assertThat(info.imageInfo.size).isEqualTo(info.file.length())
+        // The image is copied as is (apart from the metadata stripping), it's not re-encoded.
+        assertThat(info.file.length()).isAtMost(originalSize + 1_024)
+        assertThat(BitmapFactory.decodeFile(info.file.path).sameAs(originalBitmap)).isTrue()
     }
 
     @Test
