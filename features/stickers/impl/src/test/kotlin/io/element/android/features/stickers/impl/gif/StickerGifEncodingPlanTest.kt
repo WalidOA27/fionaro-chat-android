@@ -75,9 +75,15 @@ class StickerGifEncodingPlanTest {
 
     @Test
     fun `durationsToTry - shortens 6 seconds to 4 then 3 seconds from the same start`() {
-        assertThat(StickerGifEncodingPlan.durationsToTry(6_000)).containsExactly(6_000L, 4_000L, 3_000L).inOrder()
-        assertThat(StickerGifEncodingPlan.durationsToTry(5_000)).containsExactly(5_000L, 4_000L, 3_000L).inOrder()
-        assertThat(StickerGifEncodingPlan.durationsToTry(3_500)).containsExactly(3_500L, 3_000L).inOrder()
+        assertThat(StickerGifEncodingPlan.durationsToTry(6_000))
+            .containsExactly(6_000L, 4_000L, 3_000L)
+            .inOrder()
+        assertThat(StickerGifEncodingPlan.durationsToTry(5_000))
+            .containsExactly(5_000L, 4_000L, 3_000L)
+            .inOrder()
+        assertThat(StickerGifEncodingPlan.durationsToTry(3_500))
+            .containsExactly(3_500L, 3_000L)
+            .inOrder()
         assertThat(StickerGifEncodingPlan.durationsToTry(3_000)).containsExactly(3_000L)
         assertThat(StickerGifEncodingPlan.durationsToTry(2_000)).containsExactly(2_000L)
     }
@@ -85,13 +91,17 @@ class StickerGifEncodingPlanTest {
     @Test
     fun `sampleFrameIndices - picks evenly spaced frames of a 10 fps sample`() {
         assertThat(StickerGifEncodingPlan.sampleFrameIndices(1_000, GifEncodingStep(384, 10)))
-            .containsExactly(0, 1, 2, 3, 4, 5, 6, 7, 8, 9).inOrder()
+            .containsExactly(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+            .inOrder()
         assertThat(StickerGifEncodingPlan.sampleFrameIndices(1_000, GifEncodingStep(256, 8)))
-            .containsExactly(0, 1, 3, 4, 5, 6, 8, 9).inOrder()
+            .containsExactly(0, 1, 3, 4, 5, 6, 8, 9)
+            .inOrder()
         assertThat(StickerGifEncodingPlan.sampleFrameIndices(1_000, GifEncodingStep(160, 6)))
-            .containsExactly(0, 2, 3, 5, 7, 8).inOrder()
+            .containsExactly(0, 2, 3, 5, 7, 8)
+            .inOrder()
         assertThat(StickerGifEncodingPlan.sampleFrameIndices(500, GifEncodingStep(160, 6)))
-            .containsExactly(0, 2, 3).inOrder()
+            .containsExactly(0, 2, 3)
+            .inOrder()
     }
 
     @Test

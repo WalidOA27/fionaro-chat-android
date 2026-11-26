@@ -39,7 +39,8 @@ internal data class ParsedGif(
     }
 
     companion object {
-        fun parse(bytes: ByteArray): ParsedGif {            var index = 6 // header
+        fun parse(bytes: ByteArray): ParsedGif {
+            var index = 6 // header
             val width = bytes.uint16(index)
             val height = bytes.uint16(index + 2)
             index += 7 // logical screen descriptor

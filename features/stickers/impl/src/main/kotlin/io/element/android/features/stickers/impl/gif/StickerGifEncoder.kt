@@ -209,7 +209,7 @@ internal class StickerGifEncoder(
         writeShort(rect.height)
         // Local color table of tableSize entries, not interlaced.
         val bits = Integer.numberOfTrailingZeros(tableSize)
-        output.write(0x80 or (bits - 1))
+        output.write(0x80 or bits - 1)
     }
 
     private fun writeColorTable(palette: GifPalette, tableSize: Int) {

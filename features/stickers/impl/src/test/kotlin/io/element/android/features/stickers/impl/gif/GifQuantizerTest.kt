@@ -34,9 +34,9 @@ class GifQuantizerTest {
     }
 
     private fun gradientFrame(offset: Int): IntArray = IntArray(32 * 32) { index ->
-        val red = (index % 32 * 8 + offset) and 0xFF
-        val green = (index / 32 * 8 + offset) and 0xFF
-        val blue = ((index % 32 + index / 32) * 4 + offset) and 0xFF
+        val red = index % 32 * 8 + offset and 0xFF
+        val green = index / 32 * 8 + offset and 0xFF
+        val blue = (index % 32 + index / 32) * 4 + offset and 0xFF
         0xFF shl 24 or (red shl 16) or (green shl 8) or blue
     }
 }
