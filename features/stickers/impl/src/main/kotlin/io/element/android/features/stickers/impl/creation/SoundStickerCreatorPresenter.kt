@@ -141,7 +141,10 @@ class SoundStickerCreatorPresenter(
             }.onFailure {
                 Timber.w(it, "Unable to encode the sticker animation")
                 image = null
-                errorMessage = R.string.screen_sound_sticker_creator_error_video_too_complex
+                errorMessage = when (it) {
+                    is StickerAnimationException.TooComplex -> R.string.screen_sound_sticker_creator_error_video_too_complex
+                    else -> R.string.screen_sound_sticker_creator_error_media_unreadable
+                }
             }
         }
 

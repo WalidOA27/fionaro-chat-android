@@ -25,6 +25,7 @@
   <string name="screen_sound_sticker_creator_error_image">"No se puede usar esta imagen."</string>
   <string name="screen_sound_sticker_creator_error_video">"No se puede usar este vídeo."</string>
   <string name="screen_sound_sticker_creator_error_video_too_complex">"Este vídeo es demasiado complejo para un sticker, prueba con uno más corto."</string>
+  <string name="screen_sound_sticker_creator_error_media_unreadable">"Este archivo no se puede usar como sticker."</string>
   <string name="screen_sound_sticker_creator_error_audio">"No se puede usar este archivo de audio."</string>
   <string name="screen_sound_sticker_creator_error_audio_too_long">"El sonido debe durar 10 segundos como máximo."</string>
   <string name="screen_sound_sticker_creator_error_record">"No se ha podido grabar el sonido."</string>

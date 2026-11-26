@@ -71,9 +71,15 @@ class DefaultStickerAnimationProcessor(
     ): Result<StickerImage> = withContext(dispatchers.io) {
         runCatchingExceptions {
             require(durationMs > 0) { "The animation must last at least 1 ms" }
-            val encoded = encodeWithinBudget { step ->
-                encodeVideo(videoFile, startMs, durationMs, step, onProgress)
-            } ?: error(TOO_COMPLEX_ERROR)
+            val encoded = try {
+                encodeWithinBudget { step ->
+                    encodeVideo(videoFile, startMs, durationMs, step, onProgress)
+                } ?: throw StickerAnimationException.TooComplex()
+            } catch (exception: StickerAnimationException) {
+                throw exception
+            } catch (exception: Exception) {
+                throw StickerAnimationException.MediaUnreadable(exception)
+            }
             writeSticker(encoded)
         }
     }
@@ -87,9 +93,15 @@ class DefaultStickerAnimationProcessor(
             require(mimeType.lowercase().substringBefore(';').trim() == MimeTypes.Gif) {
                 "Only GIF animations can be re-encoded, was $mimeType"
             }
-            val encoded = encodeWithinBudget { step ->
-                encodeGif(imageFile, step, onProgress)
-            } ?: error(TOO_COMPLEX_ERROR)
+            val encoded = try {
+                encodeWithinBudget { step ->
+                    encodeGif(imageFile, step, onProgress)
+                } ?: throw StickerAnimationException.TooComplex()
+            } catch (exception: StickerAnimationException) {
+                throw exception
+            } catch (exception: Exception) {
+                throw StickerAnimationException.MediaUnreadable(exception)
+            }
             writeSticker(encoded)
         }
     }
@@ -209,6 +221,21 @@ class DefaultStickerAnimationProcessor(
 
     private companion object {
         const val STICKER_ANIMATIONS_DIRECTORY = "sticker_animations"
-        const val TOO_COMPLEX_ERROR = "This video is too complex for a sticker"
     }
+}
+
+/**
+ * Typed failures of [StickerAnimationProcessor], so that callers can show the right message
+ * without matching exception strings.
+ */
+sealed class StickerAnimationException(message: String, cause: Throwable? = null) : Exception(message, cause) {
+    /**
+     * The animation is valid, but every encoding fallback still exceeds the sticker budget.
+     */
+    class TooComplex : StickerAnimationException("The animation is too complex for a sticker")
+
+    /**
+     * The source could not be read, decoded or extracted, whatever the encoding budget.
+     */
+    class MediaUnreadable(cause: Throwable? = null) : StickerAnimationException("The media cannot be used as a sticker", cause)
 }

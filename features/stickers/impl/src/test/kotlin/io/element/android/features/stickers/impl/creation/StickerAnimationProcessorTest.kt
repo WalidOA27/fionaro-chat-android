@@ -74,6 +74,7 @@ class StickerAnimationProcessorTest : RobolectricTest() {
         val result = sut.processAnimatedImage(input, MimeTypes.Gif)
 
         assertThat(result.isFailure).isTrue()
+        assertThat(result.exceptionOrNull()).isInstanceOf(StickerAnimationException.MediaUnreadable::class.java)
     }
 
     @Test
