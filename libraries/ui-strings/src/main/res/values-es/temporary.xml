@@ -154,4 +154,6 @@
   <string name="screen_static_location_sheet_title">"En el mapa"</string>
   <string name="vulkan_not_supported_dialog_content_android">"Tu dispositivo es demasiado antiguo, se requiere un dispositivo con Android 8 o posterior."</string>
   <string name="vulkan_not_supported_dialog_title_android">"No se pueden mostrar los mapas"</string>
+  <string name="a11y_play_sticker_sound">"Reproducir el sonido del sticker"</string>
+  <string name="a11y_stop_sticker_sound">"Detener el sonido del sticker"</string>
 </resources>
