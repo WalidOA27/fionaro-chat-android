@@ -34,6 +34,7 @@ import io.element.android.features.messages.impl.timeline.model.event.TimelineIt
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemRedactedContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemRtcNotificationContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemStateContent
+import io.element.android.features.messages.impl.timeline.model.event.TimelineItemStickerContent
 import io.element.android.features.messages.impl.timeline.model.event.canBeCopied
 import io.element.android.features.messages.impl.timeline.model.event.canBeForwarded
 import io.element.android.features.messages.impl.timeline.model.event.canReact
@@ -117,6 +118,7 @@ class DefaultActionListPresenter(
                     pinnedEventIds = pinnedEventIds,
                     target = target,
                     isThreadsEnabled = isThreadsEnabled.value,
+                    isMediaVisible = event.isMediaVisible,
                 )
             }
         }
@@ -134,6 +136,7 @@ class DefaultActionListPresenter(
         pinnedEventIds: ImmutableList<EventId>,
         target: MutableState<ActionListState.Target>,
         isThreadsEnabled: Boolean,
+        isMediaVisible: Boolean,
     ) = launch {
         target.value = ActionListState.Target.Loading(timelineItem)
 
@@ -143,6 +146,7 @@ class DefaultActionListPresenter(
             isDeveloperModeEnabled = isDeveloperModeEnabled,
             isEventPinned = pinnedEventIds.contains(timelineItem.eventId),
             isThreadsEnabled = isThreadsEnabled,
+            isMediaVisible = isMediaVisible,
         )
 
         val verifiedUserSendFailure = userSendFailureFactory.create(timelineItem.localSendState)
@@ -176,6 +180,7 @@ class DefaultActionListPresenter(
         isDeveloperModeEnabled: Boolean,
         isEventPinned: Boolean,
         isThreadsEnabled: Boolean,
+        isMediaVisible: Boolean,
     ): List<TimelineItemAction> {
         val canRedact = timelineItem.isMine && usersEventPermissions.canRedactOwn || !timelineItem.isMine && usersEventPermissions.canRedactOther
         return buildSet {
@@ -196,6 +201,9 @@ class DefaultActionListPresenter(
             }
             if (timelineItem.isRemote && timelineItem.content.canBeForwarded()) {
                 add(TimelineItemAction.Forward)
+            }
+            if (timelineItem.isRemote && isMediaVisible && timelineItem.content is TimelineItemStickerContent) {
+                add(TimelineItemAction.SaveSticker)
             }
             if (timelineItem.isEditable && usersEventPermissions.canSendMessage) {
                 if (timelineItem.content is TimelineItemEventContentWithAttachment) {

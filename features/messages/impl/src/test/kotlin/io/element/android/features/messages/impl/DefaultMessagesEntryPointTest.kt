@@ -73,12 +73,14 @@ class DefaultMessagesEntryPointTest {
                     override fun createNode(
                         parentNode: com.bumble.appyx.core.node.Node,
                         buildContext: com.bumble.appyx.core.modality.BuildContext,
+                        params: SoundStickerCreatorEntryPoint.Params,
                     ) = lambdaError()
                 },
                 myStickersEntryPoint = object : MyStickersEntryPoint {
                     override fun createNode(
                         parentNode: com.bumble.appyx.core.node.Node,
                         buildContext: com.bumble.appyx.core.modality.BuildContext,
+                        params: MyStickersEntryPoint.Params,
                     ) = lambdaError()
                 },
                 elementCallEntryPoint = FakeElementCallEntryPoint(),

@@ -13,6 +13,31 @@ internal data class ParsedGif(
     val loopCount: Int?,
     val frames: List<ParsedFrame>,
 ) {
+    /**
+     * Rebuilds the full canvas after each frame, applying the disposal methods and transparency.
+     */
+    fun compositedFrames(): List<IntArray> {
+        val canvas = IntArray(width * height)
+        val result = ArrayList<IntArray>(frames.size)
+        var previousDisposal = 1
+        for (frame in frames) {
+            if (previousDisposal == 2) canvas.fill(0)
+            for (y in 0 until frame.height) {
+                for (x in 0 until frame.width) {
+                    val index = frame.decodedIndices[y * frame.width + x]
+                    val isTransparent = frame.hasTransparency && index == frame.transparentColorIndex
+                    if (!isTransparent) {
+                        val color = frame.palette.getOrElse(index) { 0 }
+                        canvas[(frame.top + y) * width + frame.left + x] = color
+                    }
+                }
+            }
+            result.add(canvas.copyOf())
+            previousDisposal = frame.disposalMethod
+        }
+        return result
+    }
+
     companion object {
         fun parse(bytes: ByteArray): ParsedGif {
             var index = 6 // header
@@ -21,6 +46,9 @@ internal data class ParsedGif(
             index += 7 // logical screen descriptor
             var loopCount: Int? = null
             var pendingDelay = 0
+            var pendingHasTransparency = false
+            var pendingTransparentIndex = 0
+            var pendingDisposalMethod = 1
             val frames = mutableListOf<ParsedFrame>()
             while (index < bytes.size) {
                 when (val block = bytes[index].toInt() and 0xFF) {
@@ -32,6 +60,9 @@ internal data class ParsedGif(
                             val size = bytes[index].toInt() and 0xFF
                             val data = bytes.copyOfRange(index + 1, index + 1 + size)
                             pendingDelay = data[1].toInt() and 0xFF or (data[2].toInt() and 0xFF shl 8)
+                            pendingHasTransparency = data[0].toInt() and 0x01 != 0
+                            pendingDisposalMethod = data[0].toInt() shr 2 and 0x07
+                            pendingTransparentIndex = data[3].toInt() and 0xFF
                             index += 1 + size
                             index = bytes.skipSubBlocks(index)
                         } else {
@@ -83,6 +114,9 @@ internal data class ParsedGif(
                                 palette = palette,
                                 decodedIndices = decoded,
                                 delayCentiseconds = pendingDelay,
+                                hasTransparency = pendingHasTransparency,
+                                transparentColorIndex = pendingTransparentIndex,
+                                disposalMethod = pendingDisposalMethod,
                             )
                         )
                     }
@@ -128,6 +162,9 @@ internal data class ParsedFrame(
     val palette: IntArray,
     val decodedIndices: List<Int>,
     val delayCentiseconds: Int,
+    val hasTransparency: Boolean = false,
+    val transparentColorIndex: Int = 0,
+    val disposalMethod: Int = 1,
 ) {
     val pixelCount: Int get() = decodedIndices.size
 }

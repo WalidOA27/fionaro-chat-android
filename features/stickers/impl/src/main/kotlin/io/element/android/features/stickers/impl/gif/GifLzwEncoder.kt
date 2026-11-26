@@ -20,6 +20,7 @@ import java.io.OutputStream
 internal class GifLzwEncoder(
     private val pixels: ByteArray,
     private val initCodeSize: Int,
+    private val pixelCount: Int = pixels.size,
 ) {
     private val accum = ByteArray(256)
     private var accumulatedCount = 0
@@ -43,7 +44,7 @@ internal class GifLzwEncoder(
     fun encode(output: OutputStream) {
         // Initial code size byte.
         output.write(initCodeSize)
-        remaining = pixels.size
+        remaining = pixelCount
         currentPixel = 0
         compress(initCodeSize + 1, output)
         // Block terminator.

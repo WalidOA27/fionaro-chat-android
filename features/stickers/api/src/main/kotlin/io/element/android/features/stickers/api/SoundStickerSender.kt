@@ -7,6 +7,7 @@
 
 package io.element.android.features.stickers.api
 
+import io.element.android.libraries.matrix.api.core.EventId
 import io.element.android.libraries.matrix.api.room.JoinedRoom
 import java.io.File
 
@@ -41,5 +42,9 @@ interface SoundStickerSender {
         audioMimeType: String? = null,
         durationMs: Long? = null,
         body: String = "Sticker",
+        /**
+         * When set, the sticker is sent as a reply in this thread instead of the main timeline.
+         */
+        threadRootEventId: EventId? = null,
     ): Result<Unit>
 }

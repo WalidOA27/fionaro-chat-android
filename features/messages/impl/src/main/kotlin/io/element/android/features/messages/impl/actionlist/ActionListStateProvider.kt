@@ -205,6 +205,7 @@ fun aTimelineItemActionList(
     return setOfNotNull(
         TimelineItemAction.Reply,
         TimelineItemAction.Forward,
+        TimelineItemAction.SaveSticker,
         copyAction,
         TimelineItemAction.CopyLink,
         TimelineItemAction.Edit,

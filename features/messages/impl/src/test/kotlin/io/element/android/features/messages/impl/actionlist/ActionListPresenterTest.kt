@@ -24,6 +24,7 @@ import io.element.android.features.messages.impl.timeline.model.event.TimelineIt
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemImageContent
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemPollContent
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemStateEventContent
+import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemStickerContent
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemVoiceContent
 import io.element.android.features.poll.api.pollcontent.aPollAnswerItemList
 import io.element.android.libraries.dateformatter.test.FakeDateFormatter
@@ -1468,6 +1469,85 @@ class ActionListPresenterTest {
             val expectedEmojis = (suggestedEmojis + persistentListOf(":)") + otherEmojis).take(100)
             assertThat((successState.target as ActionListState.Target.Success).recentEmojis)
                 .isEqualTo(expectedEmojis)
+        }
+    }
+
+    @Test
+    fun `present - offers save to my stickers for a remote sticker`() = runTest {
+        val presenter = createActionListPresenter(isDeveloperModeEnabled = false)
+        presenter.test {
+            val initialState = awaitItem()
+            val sticker = aMessageEvent(
+                isMine = false,
+                isEditable = false,
+                content = aTimelineItemStickerContent(eventId = AN_EVENT_ID),
+            )
+
+            initialState.eventSink.invoke(
+                ActionListEvent.ComputeForMessage(event = sticker, userEventPermissions = aUserEventPermissions())
+            )
+
+            val target = awaitItem().target as ActionListState.Target.Success
+            assertThat(target.actions).contains(TimelineItemAction.SaveSticker)
+        }
+    }
+
+    @Test
+    fun `present - offers save to my stickers for my own sticker`() = runTest {
+        val presenter = createActionListPresenter(isDeveloperModeEnabled = false)
+        presenter.test {
+            val initialState = awaitItem()
+            val sticker = aMessageEvent(
+                isMine = true,
+                isEditable = false,
+                content = aTimelineItemStickerContent(eventId = AN_EVENT_ID),
+            )
+
+            initialState.eventSink.invoke(
+                ActionListEvent.ComputeForMessage(event = sticker, userEventPermissions = aUserEventPermissions())
+            )
+
+            val target = awaitItem().target as ActionListState.Target.Success
+            assertThat(target.actions).contains(TimelineItemAction.SaveSticker)
+        }
+    }
+
+    @Test
+    fun `present - does not offer save to my stickers for other content, redacted or hidden media`() = runTest {
+        val presenter = createActionListPresenter(isDeveloperModeEnabled = false)
+        presenter.test {
+            val initialState = awaitItem()
+
+            initialState.eventSink.invoke(
+                ActionListEvent.ComputeForMessage(
+                    event = aMessageEvent(
+                        isMine = false,
+                        content = TimelineItemTextContent(body = A_MESSAGE, htmlDocument = null, formattedBody = A_MESSAGE, isEdited = false),
+                    ),
+                    userEventPermissions = aUserEventPermissions(),
+                )
+            )
+            val textTarget = awaitItem().target as? ActionListState.Target.Success
+            assertThat(textTarget?.actions.orEmpty()).doesNotContain(TimelineItemAction.SaveSticker)
+
+            initialState.eventSink.invoke(
+                ActionListEvent.ComputeForMessage(
+                    event = aMessageEvent(isMine = false, content = TimelineItemRedactedContent),
+                    userEventPermissions = aUserEventPermissions(),
+                )
+            )
+            val redactedTarget = awaitItem().target as? ActionListState.Target.Success
+            assertThat(redactedTarget?.actions.orEmpty()).doesNotContain(TimelineItemAction.SaveSticker)
+
+            initialState.eventSink.invoke(
+                ActionListEvent.ComputeForMessage(
+                    event = aMessageEvent(isMine = false, content = aTimelineItemStickerContent(eventId = AN_EVENT_ID)),
+                    userEventPermissions = aUserEventPermissions(),
+                    isMediaVisible = false,
+                )
+            )
+            val hiddenTarget = awaitItem().target as ActionListState.Target.Success
+            assertThat(hiddenTarget.actions).doesNotContain(TimelineItemAction.SaveSticker)
         }
     }
 }

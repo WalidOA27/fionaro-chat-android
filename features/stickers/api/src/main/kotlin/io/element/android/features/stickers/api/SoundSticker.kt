@@ -21,4 +21,10 @@ data class SoundSticker(
     val durationMs: Long?,
     val body: String,
     val createdAt: Long,
+    /**
+     * The mxc URL the sticker was received from, when it was saved from the timeline.
+     * Used to avoid saving the same sticker twice. `null` for locally created stickers
+     * and for stickers saved by older versions of the app.
+     */
+    val sourceUrl: String? = null,
 )

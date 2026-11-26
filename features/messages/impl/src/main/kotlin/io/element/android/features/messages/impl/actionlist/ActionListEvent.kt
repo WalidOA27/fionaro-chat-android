@@ -16,5 +16,10 @@ sealed interface ActionListEvent {
     data class ComputeForMessage(
         val event: TimelineItem.Event,
         val userEventPermissions: UserEventPermissions,
+        /**
+         * Whether the media of the event can be shown to the user. Hidden (protected) media
+         * must not be downloadable, so actions like "Save to my stickers" are not offered.
+         */
+        val isMediaVisible: Boolean = true,
     ) : ActionListEvent
 }

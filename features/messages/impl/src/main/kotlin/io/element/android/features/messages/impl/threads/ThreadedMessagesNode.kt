@@ -134,6 +134,8 @@ class ThreadedMessagesNode(
         fun navigateToReportMessage(eventId: EventId, senderId: UserId)
         fun navigateToSendLocation()
         fun navigateToCreatePoll()
+        fun navigateToSoundStickerCreator()
+        fun navigateToMyStickers()
         fun navigateToEditPoll(eventId: EventId)
         fun navigateToCurrentLiveLocation()
         fun navigateToRoomCall(roomId: RoomId, isAudioCall: Boolean)
@@ -301,8 +303,8 @@ class ThreadedMessagesNode(
                     },
                     onSendLocationClick = callback::navigateToSendLocation,
                     onCreatePollClick = callback::navigateToCreatePoll,
-                    onSoundStickerClick = {},
-                    onMyStickersClick = {},
+                    onSoundStickerClick = callback::navigateToSoundStickerCreator,
+                    onMyStickersClick = callback::navigateToMyStickers,
                     onJoinCallClick = { isAudioCall ->
                         callback.navigateToRoomCall(room.roomId, isAudioCall)
                     },

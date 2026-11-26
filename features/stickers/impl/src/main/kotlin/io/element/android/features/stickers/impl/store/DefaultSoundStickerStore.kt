@@ -53,8 +53,14 @@ class DefaultSoundStickerStore(
         audioMimeType: String?,
         durationMs: Long?,
         body: String,
+        sourceUrl: String?,
     ): Result<SoundSticker> = withContext(dispatchers.io) {
         runCatchingExceptions {
+            if (sourceUrl != null) {
+                decode(store.data.first()[stickersKey])
+                    .firstOrNull { it.sourceUrl == sourceUrl }
+                    ?.let { return@runCatchingExceptions it.toModel() }
+            }
             val id = UUID.randomUUID().toString()
             val directory = File(stickersDirectory(), id).apply { mkdirs() }
             val imageTarget = File(directory, "image.${extensionOf(imageMimeType)}")
@@ -78,6 +84,7 @@ class DefaultSoundStickerStore(
                 durationMs = durationMs,
                 body = body,
                 createdAt = System.currentTimeMillis(),
+                sourceUrl = sourceUrl,
             )
 
             val keptStickers = store.editAndGetStickers { current ->
@@ -166,6 +173,7 @@ private data class StoredSoundSticker(
     val durationMs: Long? = null,
     val body: String,
     val createdAt: Long,
+    val sourceUrl: String? = null,
 ) {
     fun toModel() = SoundSticker(
         id = id,
@@ -178,6 +186,7 @@ private data class StoredSoundSticker(
         durationMs = durationMs,
         body = body,
         createdAt = createdAt,
+        sourceUrl = sourceUrl,
     )
 }
 
@@ -192,4 +201,5 @@ private fun SoundSticker.toStored() = StoredSoundSticker(
     durationMs = durationMs,
     body = body,
     createdAt = createdAt,
+    sourceUrl = sourceUrl,
 )

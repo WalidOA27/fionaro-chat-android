@@ -184,6 +184,7 @@ fun MessagesView(
                 ActionListEvent.ComputeForMessage(
                     event = event,
                     userEventPermissions = state.userEventPermissions,
+                    isMediaVisible = !state.timelineProtectionState.hideMediaContent(event.eventId, event.isMine),
                 )
             )
         }
@@ -486,7 +487,7 @@ private fun MessagesViewContent(
             onSoundStickerClick = onSoundStickerClick,
             onMyStickersClick = onMyStickersClick,
             enableTextFormatting = state.enableTextFormatting,
-            showSoundStickerEntries = state.timelineState.timelineMode !is Timeline.Mode.Thread,
+            showSoundStickerEntries = true,
         )
 
         if (state.voiceMessageComposerState.showPermissionRationaleDialog) {

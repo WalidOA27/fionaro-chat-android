@@ -36,14 +36,19 @@ import io.element.android.features.messages.impl.timeline.model.event.TimelineIt
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemImageContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemTextContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemVideoContent
+import io.element.android.features.messages.impl.timeline.model.event.aStickerAudio
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemImageContent
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemPollContent
+import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemStickerContent
 import io.element.android.features.messages.impl.timeline.model.event.aTimelineItemTextContent
 import io.element.android.features.messages.impl.timeline.protection.aTimelineProtectionState
 import io.element.android.features.messages.test.timeline.FakeHtmlConverterProvider
 import io.element.android.features.messages.test.timeline.voicemessages.composer.FakeDefaultVoiceMessageComposerPresenterFactory
 import io.element.android.features.roomcall.api.aStandByCallState
 import io.element.android.features.roommembermoderation.api.RoomMemberModerationState
+import io.element.android.features.stickers.test.FakeStickerImageProcessor
+import io.element.android.features.stickers.test.InMemorySoundStickerStore
+import io.element.android.features.stickers.test.aSoundSticker
 import io.element.android.libraries.androidutils.clipboard.FakeClipboardHelper
 import io.element.android.libraries.architecture.AsyncData
 import io.element.android.libraries.architecture.Presenter
@@ -84,6 +89,7 @@ import io.element.android.libraries.matrix.test.A_USER_ID
 import io.element.android.libraries.matrix.test.A_USER_ID_2
 import io.element.android.libraries.matrix.test.core.aBuildMeta
 import io.element.android.libraries.matrix.test.encryption.FakeEncryptionService
+import io.element.android.libraries.matrix.test.media.FakeMatrixMediaLoader
 import io.element.android.libraries.matrix.test.permalink.FakePermalinkParser
 import io.element.android.libraries.matrix.test.room.FakeBaseRoom
 import io.element.android.libraries.matrix.test.room.FakeJoinedRoom
@@ -114,6 +120,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -1319,6 +1326,118 @@ class MessagesPresenterTest {
         }
     }
 
+    @Test
+    fun `present - saving a received sticker stores it and shows a success snackbar`() = runTest {
+        val store = InMemorySoundStickerStore()
+        val loader = FakeMatrixMediaLoader().apply { path = "/tmp/sticker.png" }
+        val presenter = createMessagesPresenter(matrixMediaLoader = loader, soundStickerStore = store)
+
+        presenter.testWithLifecycleOwner {
+            val initialState = awaitItem()
+            val event = aMessageEvent(
+                isMine = false,
+                content = aTimelineItemStickerContent(
+                    mediaSource = MediaSource("mxc://matrix.org/sticker"),
+                    width = 64,
+                    height = 64,
+                ),
+            )
+
+            initialState.eventSink(MessagesEvent.HandleAction(TimelineItemAction.SaveSticker, event))
+            advanceUntilIdle()
+
+            assertThat(store.addCalls).hasSize(1)
+            assertThat(store.addCalls.single().sourceUrl).isEqualTo("mxc://matrix.org/sticker")
+            assertThat(store.addCalls.single().width).isEqualTo(512)
+            assertThat(store.addCalls.single().height).isEqualTo(512)
+            assertThat(consumeItemsUntilPredicate { it.snackbarMessage != null }.last().snackbarMessage?.messageResId)
+                .isEqualTo(R.string.screen_room_save_sticker_success)
+        }
+    }
+
+    @Test
+    fun `present - saving a sticker which cannot be downloaded shows an error snackbar`() = runTest {
+        val store = InMemorySoundStickerStore()
+        val loader = FakeMatrixMediaLoader().apply { shouldFail = true }
+        val presenter = createMessagesPresenter(matrixMediaLoader = loader, soundStickerStore = store)
+
+        presenter.testWithLifecycleOwner {
+            val initialState = awaitItem()
+            val event = aMessageEvent(
+                isMine = false,
+                content = aTimelineItemStickerContent(
+                    mediaSource = MediaSource("mxc://matrix.org/sticker"),
+                    width = 64,
+                    height = 64,
+                ),
+            )
+
+            initialState.eventSink(MessagesEvent.HandleAction(TimelineItemAction.SaveSticker, event))
+            advanceUntilIdle()
+
+            assertThat(store.addCalls).isEmpty()
+            assertThat(consumeItemsUntilPredicate { it.snackbarMessage != null }.last().snackbarMessage?.messageResId)
+                .isEqualTo(R.string.screen_room_save_sticker_error)
+        }
+    }
+
+    @Test
+    fun `present - saving a sticker drops a sound longer than the sender limit`() = runTest {
+        val store = InMemorySoundStickerStore()
+        val loader = FakeMatrixMediaLoader().apply { path = "/tmp/sticker.png" }
+        val presenter = createMessagesPresenter(matrixMediaLoader = loader, soundStickerStore = store)
+
+        presenter.testWithLifecycleOwner {
+            val initialState = awaitItem()
+            val event = aMessageEvent(
+                isMine = false,
+                content = aTimelineItemStickerContent(
+                    mediaSource = MediaSource("mxc://matrix.org/sticker"),
+                    width = 64,
+                    height = 64,
+                    audio = aStickerAudio().copy(durationMs = 30_000),
+                ),
+            )
+
+            initialState.eventSink(MessagesEvent.HandleAction(TimelineItemAction.SaveSticker, event))
+            advanceUntilIdle()
+
+            assertThat(store.addCalls).hasSize(1)
+            assertThat(store.addCalls.single().audioFile).isNull()
+            assertThat(store.addCalls.single().audioMimeType).isNull()
+            assertThat(store.addCalls.single().durationMs).isNull()
+            assertThat(consumeItemsUntilPredicate { it.snackbarMessage != null }.last().snackbarMessage?.messageResId)
+                .isEqualTo(R.string.screen_room_save_sticker_success)
+        }
+    }
+
+    @Test
+    fun `present - saving the same sticker twice shows a success snackbar without duplicating it`() = runTest {
+        val poster = aSoundSticker(sourceUrl = "mxc://matrix.org/sticker")
+        val store = InMemorySoundStickerStore(initialStickers = listOf(poster))
+        val loader = FakeMatrixMediaLoader().apply { path = "/tmp/sticker.png" }
+        val presenter = createMessagesPresenter(matrixMediaLoader = loader, soundStickerStore = store)
+
+        presenter.testWithLifecycleOwner {
+            val initialState = awaitItem()
+            val event = aMessageEvent(
+                isMine = false,
+                content = aTimelineItemStickerContent(
+                    mediaSource = MediaSource("mxc://matrix.org/sticker"),
+                    width = 64,
+                    height = 64,
+                ),
+            )
+
+            initialState.eventSink(MessagesEvent.HandleAction(TimelineItemAction.SaveSticker, event))
+            advanceUntilIdle()
+
+            assertThat(store.stickers.first()).hasSize(1)
+            assertThat(consumeItemsUntilPredicate { it.snackbarMessage != null }.last().snackbarMessage?.messageResId)
+                .isEqualTo(R.string.screen_room_save_sticker_success)
+        }
+    }
+
     private fun roomPermissions(
         canStartCall: Boolean = true,
         canRedactOther: Boolean = true,
@@ -1383,6 +1502,10 @@ class MessagesPresenterTest {
         addRecentEmoji: AddRecentEmoji = AddRecentEmoji { _ -> lambdaError() },
         markAsFullyRead: MarkAsFullyRead = FakeMarkAsFullyRead(),
         liveLocationShareManager: FakeActiveLiveLocationShareManager = FakeActiveLiveLocationShareManager(),
+        matrixMediaLoader: FakeMatrixMediaLoader = FakeMatrixMediaLoader(),
+        soundStickerStore: InMemorySoundStickerStore = InMemorySoundStickerStore(),
+        stickerImageProcessor: FakeStickerImageProcessor = FakeStickerImageProcessor(),
+        snackbarDispatcher: SnackbarDispatcher = SnackbarDispatcher(),
     ): MessagesPresenter {
         return MessagesPresenter(
             navigator = navigator,
@@ -1400,7 +1523,7 @@ class MessagesPresenterTest {
             pinnedMessagesBannerPresenter = { aLoadedPinnedMessagesBannerState() },
             roomCallStatePresenter = { aStandByCallState() },
             roomMemberModerationPresenter = roomMemberModerationPresenter,
-            snackbarDispatcher = SnackbarDispatcher(),
+            snackbarDispatcher = snackbarDispatcher,
             dispatchers = coroutineDispatchers,
             clipboardHelper = clipboardHelper,
             htmlConverterProvider = FakeHtmlConverterProvider(),
@@ -1414,6 +1537,9 @@ class MessagesPresenterTest {
             markAsFullyRead = markAsFullyRead,
             liveLocationShareManager = liveLocationShareManager,
             sessionCoroutineScope = backgroundScope,
+            matrixMediaLoader = matrixMediaLoader,
+            soundStickerStore = soundStickerStore,
+            stickerImageProcessor = stickerImageProcessor,
         )
     }
 }

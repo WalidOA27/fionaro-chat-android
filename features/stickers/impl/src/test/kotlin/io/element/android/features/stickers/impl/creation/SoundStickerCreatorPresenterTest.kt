@@ -257,7 +257,7 @@ class SoundStickerCreatorPresenterTest {
     fun `present - a video which is too complex shows an error`() = runTest {
         pickerProvider.givenMimeType(MimeTypes.Mp4)
         animationProcessor.givenVideoResult { _, _, _ ->
-            Result.failure(IllegalStateException("This video is too complex for a sticker"))
+            Result.failure(StickerAnimationException.TooComplex())
         }
         val presenter = createPresenter()
 
@@ -267,6 +267,27 @@ class SoundStickerCreatorPresenterTest {
 
             val state = awaitState { it.errorMessage != null }
             assertThat(state.errorMessage).isEqualTo(R.string.screen_sound_sticker_creator_error_video_too_complex)
+            assertThat(state.image).isNull()
+            assertThat(state.isPreparingAnimation).isFalse()
+            assertThat(state.canSend).isFalse()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `present - an unreadable video shows the media unreadable error`() = runTest {
+        pickerProvider.givenMimeType(MimeTypes.Mp4)
+        animationProcessor.givenVideoResult { _, _, _ ->
+            Result.failure(StickerAnimationException.MediaUnreadable(IllegalStateException("Broken video")))
+        }
+        val presenter = createPresenter()
+
+        presenter.test {
+            awaitItem().eventSink(SoundStickerCreatorEvent.PickMedia)
+            advanceUntilIdle()
+
+            val state = awaitState { it.errorMessage != null }
+            assertThat(state.errorMessage).isEqualTo(R.string.screen_sound_sticker_creator_error_media_unreadable)
             assertThat(state.image).isNull()
             assertThat(state.isPreparingAnimation).isFalse()
             assertThat(state.canSend).isFalse()
@@ -560,5 +581,6 @@ class SoundStickerCreatorPresenterTest {
         sessionCoroutineScope = this,
         permissionsPresenterFactory = FakePermissionsPresenterFactory(permissionsPresenter),
         navigateUp = { navigateUp() },
+        threadRootEventId = null,
     )
 }

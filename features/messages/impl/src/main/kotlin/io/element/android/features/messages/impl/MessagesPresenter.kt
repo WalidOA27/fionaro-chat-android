@@ -50,12 +50,15 @@ import io.element.android.features.messages.impl.timeline.model.TimelineItemThre
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemEventContentWithAttachment
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemPollContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemStateContent
+import io.element.android.features.messages.impl.timeline.model.event.TimelineItemStickerContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemTextBasedContent
 import io.element.android.features.messages.impl.timeline.protection.TimelineProtectionState
 import io.element.android.features.messages.impl.voicemessages.composer.DefaultVoiceMessageComposerPresenter
 import io.element.android.features.roomcall.api.RoomCallState
 import io.element.android.features.roommembermoderation.api.RoomMemberModerationEvents
 import io.element.android.features.roommembermoderation.api.RoomMemberModerationState
+import io.element.android.features.stickers.api.SoundStickerStore
+import io.element.android.features.stickers.api.StickerImageProcessor
 import io.element.android.libraries.androidutils.clipboard.ClipboardHelper
 import io.element.android.libraries.architecture.AsyncData
 import io.element.android.libraries.architecture.Presenter
@@ -74,6 +77,7 @@ import io.element.android.libraries.featureflag.api.FeatureFlags
 import io.element.android.libraries.matrix.api.core.toThreadId
 import io.element.android.libraries.matrix.api.encryption.EncryptionService
 import io.element.android.libraries.matrix.api.encryption.identity.IdentityState
+import io.element.android.libraries.matrix.api.media.MatrixMediaLoader
 import io.element.android.libraries.matrix.api.permalink.PermalinkParser
 import io.element.android.libraries.matrix.api.room.JoinedRoom
 import io.element.android.libraries.matrix.api.room.RoomInfo
@@ -82,6 +86,7 @@ import io.element.android.libraries.matrix.api.room.history.RoomHistoryVisibilit
 import io.element.android.libraries.matrix.api.room.powerlevels.permissionsAsState
 import io.element.android.libraries.matrix.api.timeline.Timeline
 import io.element.android.libraries.matrix.api.timeline.item.event.EventOrTransactionId
+import io.element.android.libraries.matrix.api.timeline.item.event.MAX_STICKER_AUDIO_DURATION_MS
 import io.element.android.libraries.matrix.ui.messages.reply.map
 import io.element.android.libraries.matrix.ui.model.getAvatarData
 import io.element.android.libraries.matrix.ui.room.getDirectRoomMember
@@ -97,6 +102,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 @AssistedInject
@@ -130,6 +136,9 @@ class MessagesPresenter(
     private val markAsFullyRead: MarkAsFullyRead,
     private val liveLocationShareManager: ActiveLiveLocationShareManager,
     @SessionCoroutineScope private val sessionCoroutineScope: CoroutineScope,
+    private val matrixMediaLoader: MatrixMediaLoader,
+    private val soundStickerStore: SoundStickerStore,
+    private val stickerImageProcessor: StickerImageProcessor,
 ) : Presenter<MessagesState> {
     @AssistedFactory
     interface Factory {
@@ -393,6 +402,7 @@ class MessagesPresenter(
             }
             TimelineItemAction.ViewSource -> handleShowDebugInfoAction(targetEvent)
             TimelineItemAction.Forward -> handleForwardAction(targetEvent)
+            TimelineItemAction.SaveSticker -> handleSaveStickerAction(targetEvent)
             TimelineItemAction.ReportContent -> handleReportAction(targetEvent)
             TimelineItemAction.EndPoll -> handleEndPollAction(targetEvent, timelineState)
             TimelineItemAction.Pin -> handlePinAction(targetEvent)
@@ -443,6 +453,59 @@ class MessagesPresenter(
                     snackbarDispatcher.post(SnackbarMessage(CommonStrings.common_error))
                 }
         }
+    }
+
+    private suspend fun handleSaveStickerAction(targetEvent: TimelineItem.Event) {
+        val content = targetEvent.content as? TimelineItemStickerContent ?: return
+        val result = withContext(dispatchers.io) {
+            runCatchingExceptions {
+                val imageMediaFile = matrixMediaLoader.downloadMediaFile(
+                    source = content.preferredMediaSource ?: content.mediaSource,
+                    mimeType = content.mimeType,
+                    filename = content.filename,
+                ).getOrThrow()
+                imageMediaFile.use { image ->
+                    val stickerImage = stickerImageProcessor.process(
+                        inputFile = File(image.path()),
+                        mimeType = content.mimeType,
+                    ).getOrThrow()
+                    // The sender only accepts sounds of at most 10 seconds: keep the sticker
+                    // silent rather than saving an entry which could never be sent.
+                    val audio = content.audio?.takeIf { it.durationMs in 1..MAX_STICKER_AUDIO_DURATION_MS }
+                    val audioMediaFile = audio?.let {
+                        matrixMediaLoader.downloadMediaFile(
+                            source = it.mediaSource,
+                            mimeType = it.mimetype,
+                            filename = null,
+                        ).getOrThrow()
+                    }
+                    try {
+                        soundStickerStore.add(
+                            imageFile = stickerImage.file,
+                            imageMimeType = stickerImage.mimeType,
+                            width = stickerImage.width,
+                            height = stickerImage.height,
+                            audioFile = audioMediaFile?.let { File(it.path()) },
+                            audioMimeType = audio?.mimetype,
+                            durationMs = audio?.durationMs,
+                            body = (content.caption ?: content.filename).ifBlank { DEFAULT_STICKER_BODY }
+                                .take(MAX_STICKER_BODY_LENGTH),
+                            sourceUrl = content.mediaSource.safeUrl.takeIf { it.isNotBlank() },
+                        ).getOrThrow()
+                    } finally {
+                        audioMediaFile?.close()
+                    }
+                }
+            }
+        }
+        result
+            .onSuccess {
+                snackbarDispatcher.post(SnackbarMessage(R.string.screen_room_save_sticker_success))
+            }
+            .onFailure {
+                Timber.w(it, "Unable to save the received sticker")
+                snackbarDispatcher.post(SnackbarMessage(R.string.screen_room_save_sticker_error))
+            }
     }
 
     private fun CoroutineScope.toggleReaction(
@@ -611,5 +674,10 @@ class MessagesPresenter(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             snackbarDispatcher.post(SnackbarMessage(CommonStrings.common_copied_to_clipboard))
         }
+    }
+
+    private companion object {
+        const val DEFAULT_STICKER_BODY = "Sticker"
+        const val MAX_STICKER_BODY_LENGTH = 1024
     }
 }

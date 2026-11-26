@@ -157,5 +157,6 @@ class MyStickersPresenterTest {
         soundStickerSender = sender,
         snackbarDispatcher = SnackbarDispatcher(),
         navigateUp = { navigateUp() },
+        threadRootEventId = null,
     )
 }

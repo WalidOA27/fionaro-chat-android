@@ -9,6 +9,7 @@ package io.element.android.features.stickers.impl
 
 import com.google.common.truth.Truth.assertThat
 import io.element.android.libraries.core.mimetype.MimeTypes
+import io.element.android.libraries.matrix.api.core.EventId
 import io.element.android.libraries.matrix.api.media.EncryptedAttachment
 import io.element.android.libraries.matrix.api.media.MediaAttachmentEncryptor
 import io.element.android.libraries.matrix.test.FakeMatrixClient
@@ -18,6 +19,7 @@ import io.element.android.tests.testutils.testCoroutineDispatchers
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
@@ -102,6 +104,35 @@ class DefaultSoundStickerSenderTest {
         assertThat(audio.getValue("mimetype").jsonPrimitive.content).isEqualTo(MimeTypes.Ogg)
         assertThat(audio.getValue("size").jsonPrimitive.content).isEqualTo(audioBytes.size.toString())
         assertThat(audio.getValue("duration").jsonPrimitive.long).isEqualTo(3200)
+        assertThat(content).doesNotContainKey("m.relates_to")
+    }
+
+    @Test
+    fun `send - in a thread adds a thread relation`() = runTest {
+        joinedRoom.givenRoomInfo(aRoomInfo(isEncrypted = false))
+        matrixClient.uploadMediaResultLambda = { mimeType, _ ->
+            Result.success("mxc://matrix.org/${mimeType.replace('/', '_')}")
+        }
+        val sut = createSender()
+
+        val result = sut.send(
+            room = joinedRoom,
+            imageFile = temporaryFolder.writeFile("sticker.png", imageBytes),
+            imageMimeType = MimeTypes.Png,
+            width = 512,
+            height = 512,
+            body = "A sticker",
+            threadRootEventId = EventId("\$thread-root"),
+        )
+
+        assertThat(result.isSuccess).isTrue()
+        val content = Json.parseToJsonElement(sendRawContent()).jsonObject
+        val relatesTo = content.getValue("m.relates_to").jsonObject
+        assertThat(relatesTo.getValue("rel_type").jsonPrimitive.content).isEqualTo("m.thread")
+        assertThat(relatesTo.getValue("event_id").jsonPrimitive.content).isEqualTo("\$thread-root")
+        assertThat(relatesTo.getValue("is_falling_back").jsonPrimitive.boolean).isTrue()
+        assertThat(relatesTo.getValue("m.in_reply_to").jsonObject.getValue("event_id").jsonPrimitive.content)
+            .isEqualTo("\$thread-root")
     }
 
     @Test

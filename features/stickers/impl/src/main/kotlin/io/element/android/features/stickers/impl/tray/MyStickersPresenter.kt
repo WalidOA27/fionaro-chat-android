@@ -24,6 +24,7 @@ import io.element.android.features.stickers.impl.R
 import io.element.android.libraries.architecture.Presenter
 import io.element.android.libraries.designsystem.utils.snackbar.SnackbarDispatcher
 import io.element.android.libraries.designsystem.utils.snackbar.SnackbarMessage
+import io.element.android.libraries.matrix.api.core.EventId
 import io.element.android.libraries.matrix.api.room.JoinedRoom
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
@@ -37,10 +38,11 @@ class MyStickersPresenter(
     private val soundStickerSender: SoundStickerSender,
     private val snackbarDispatcher: SnackbarDispatcher,
     @Assisted private val navigateUp: () -> Unit,
+    @Assisted private val threadRootEventId: EventId?,
 ) : Presenter<MyStickersState> {
     @AssistedFactory
     fun interface Factory {
-        fun create(navigateUp: () -> Unit): MyStickersPresenter
+        fun create(navigateUp: () -> Unit, threadRootEventId: EventId?): MyStickersPresenter
     }
 
     @Composable
@@ -63,6 +65,7 @@ class MyStickersPresenter(
                 audioMimeType = sticker.audioMimeType,
                 durationMs = sticker.durationMs,
                 body = sticker.body,
+                threadRootEventId = threadRootEventId,
             ).onSuccess {
                 sendingStickerId = null
                 snackbarDispatcher.post(SnackbarMessage(R.string.screen_my_stickers_sent))

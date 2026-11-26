@@ -77,6 +77,7 @@ import io.element.android.libraries.matrix.api.core.RoomId
 import io.element.android.libraries.matrix.api.core.SessionId
 import io.element.android.libraries.matrix.api.core.ThreadId
 import io.element.android.libraries.matrix.api.core.UserId
+import io.element.android.libraries.matrix.api.core.asEventId
 import io.element.android.libraries.matrix.api.core.toRoomIdOrAlias
 import io.element.android.libraries.matrix.api.media.MediaSource
 import io.element.android.libraries.matrix.api.permalink.PermalinkData
@@ -185,10 +186,10 @@ class MessagesFlowNode(
         data class CreatePoll(val timelineMode: Timeline.Mode) : NavTarget
 
         @Parcelize
-        data object SoundStickerCreator : NavTarget
+        data class SoundStickerCreator(val threadRootEventId: EventId? = null) : NavTarget
 
         @Parcelize
-        data object MyStickers : NavTarget
+        data class MyStickers(val threadRootEventId: EventId? = null) : NavTarget
 
         @Parcelize
         data class EditPoll(val timelineMode: Timeline.Mode, val eventId: EventId) : NavTarget
@@ -304,11 +305,11 @@ class MessagesFlowNode(
                     }
 
                     override fun navigateToSoundStickerCreator() {
-                        backstack.push(NavTarget.SoundStickerCreator)
+                        backstack.push(NavTarget.SoundStickerCreator())
                     }
 
                     override fun navigateToMyStickers() {
-                        backstack.push(NavTarget.MyStickers)
+                        backstack.push(NavTarget.MyStickers())
                     }
 
                     override fun navigateToEditPoll(eventId: EventId) {
@@ -457,16 +458,22 @@ class MessagesFlowNode(
                     ),
                 )
             }
-            NavTarget.SoundStickerCreator -> {
+            is NavTarget.SoundStickerCreator -> {
                 soundStickerCreatorEntryPoint.createNode(
                     parentNode = this,
                     buildContext = buildContext,
+                    params = SoundStickerCreatorEntryPoint.Params(
+                        threadRootEventId = navTarget.threadRootEventId,
+                    ),
                 )
             }
-            NavTarget.MyStickers -> {
+            is NavTarget.MyStickers -> {
                 myStickersEntryPoint.createNode(
                     parentNode = this,
                     buildContext = buildContext,
+                    params = MyStickersEntryPoint.Params(
+                        threadRootEventId = navTarget.threadRootEventId,
+                    ),
                 )
             }
             is NavTarget.EditPoll -> {
@@ -572,6 +579,14 @@ class MessagesFlowNode(
 
                     override fun navigateToCreatePoll() {
                         backstack.push(NavTarget.CreatePoll(Timeline.Mode.Thread(navTarget.threadRootId)))
+                    }
+
+                    override fun navigateToSoundStickerCreator() {
+                        backstack.push(NavTarget.SoundStickerCreator(threadRootEventId = navTarget.threadRootId.asEventId()))
+                    }
+
+                    override fun navigateToMyStickers() {
+                        backstack.push(NavTarget.MyStickers(threadRootEventId = navTarget.threadRootId.asEventId()))
                     }
 
                     override fun navigateToEditPoll(eventId: EventId) {

@@ -8,6 +8,7 @@
 package io.element.android.features.stickers.test
 
 import io.element.android.features.stickers.api.SoundStickerSender
+import io.element.android.libraries.matrix.api.core.EventId
 import io.element.android.libraries.matrix.api.room.JoinedRoom
 import java.io.File
 
@@ -31,8 +32,9 @@ class FakeSoundStickerSender(
         audioMimeType: String?,
         durationMs: Long?,
         body: String,
+        threadRootEventId: EventId?,
     ): Result<Unit> {
-        lastParameters = Parameters(room, imageFile, imageMimeType, width, height, audioFile, audioMimeType, durationMs, body)
+        lastParameters = Parameters(room, imageFile, imageMimeType, width, height, audioFile, audioMimeType, durationMs, body, threadRootEventId)
         return result
     }
 
@@ -46,5 +48,6 @@ class FakeSoundStickerSender(
         val audioMimeType: String?,
         val durationMs: Long?,
         val body: String,
+        val threadRootEventId: EventId? = null,
     )
 }
