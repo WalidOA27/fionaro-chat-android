@@ -139,6 +139,8 @@ class FakeMatrixClient(
     private val searchUserResults = mutableMapOf<String, Result<MatrixSearchUserResults>>()
     private val getProfileResults = mutableMapOf<UserId, Result<MatrixUser>>()
     private var uploadMediaResult: Result<String> = Result.success(AN_AVATAR_URL)
+    var uploadMediaResultLambda: (String, ByteArray) -> Result<String> = { _, _ -> uploadMediaResult }
+    val uploadMediaCalls: MutableList<Pair<String, ByteArray>> = mutableListOf()
     private var setDisplayNameResult: Result<Unit> = Result.success(Unit)
     private var uploadAvatarResult: Result<Unit> = Result.success(Unit)
     private var removeAvatarResult: Result<Unit> = Result.success(Unit)
@@ -232,7 +234,8 @@ class FakeMatrixClient(
         mimeType: String,
         data: ByteArray,
     ): Result<String> {
-        return uploadMediaResult
+        uploadMediaCalls.add(mimeType to data)
+        return uploadMediaResultLambda(mimeType, data)
     }
 
     override suspend fun setDisplayName(displayName: String): Result<Unit> = simulateLongTask {

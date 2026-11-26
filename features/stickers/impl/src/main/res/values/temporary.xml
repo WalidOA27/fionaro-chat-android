@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  ~ Copyright (c) 2026 Element Creations Ltd.
+  ~
+  ~ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial.
+  ~ Please see LICENSE files in the repository root for full details.
+  -->
+<resources>
+    <string name="screen_sound_sticker_creator_title">Sound sticker</string>
+    <string name="screen_sound_sticker_creator_choose_media">Choose image or video</string>
+    <string name="screen_sound_sticker_creator_change_media">Change sticker image or video</string>
+    <string name="screen_sound_sticker_creator_media_description">Sticker preview</string>
+    <string name="screen_sound_sticker_creator_preparing">Preparing sticker…</string>
+    <string name="screen_sound_sticker_creator_video_start">Start at %1$ds</string>
+    <string name="screen_sound_sticker_creator_sound_section">Sound (optional)</string>
+    <string name="screen_sound_sticker_creator_use_video_sound">Use sound from the video</string>
+    <string name="screen_sound_sticker_creator_video_sound_selected">The sound of the video will be used.</string>
+    <string name="screen_sound_sticker_creator_remove_sound">Remove sound</string>
+    <string name="screen_sound_sticker_creator_record">Record</string>
+    <string name="screen_sound_sticker_creator_stop">Stop</string>
+    <string name="screen_sound_sticker_creator_recording_elapsed">Recording… %1$ds</string>
+    <string name="screen_sound_sticker_creator_pick_audio">Pick audio file</string>
+    <string name="screen_sound_sticker_creator_play_preview">Play</string>
+    <string name="screen_sound_sticker_creator_stop_preview">Stop</string>
+    <string name="screen_sound_sticker_creator_sound_ready">Sound ready · %1$ds</string>
+    <string name="screen_sound_sticker_creator_body_label">Alt text</string>
+    <string name="screen_sound_sticker_creator_body_placeholder">Sticker</string>
+    <string name="screen_sound_sticker_creator_save_to_my_stickers">Save to my stickers</string>
+    <string name="screen_sound_sticker_creator_send">Send sticker</string>
+    <string name="screen_sound_sticker_creator_sending">Sending sticker…</string>
+    <string name="screen_sound_sticker_creator_error_image">Unable to use this image.</string>
+    <string name="screen_sound_sticker_creator_error_video">Unable to use this video.</string>
+    <string name="screen_sound_sticker_creator_error_video_too_complex">This video is too complex for a sticker, try a shorter one.</string>
+    <string name="screen_sound_sticker_creator_error_audio">Unable to use this audio file.</string>
+    <string name="screen_sound_sticker_creator_error_audio_too_long">The sound must be at most 10 seconds long.</string>
+    <string name="screen_sound_sticker_creator_error_record">Unable to record the sound.</string>
+    <string name="screen_sound_sticker_creator_error_send">Unable to send the sticker.</string>
+    <string name="screen_my_stickers_title">My stickers</string>
+    <string name="screen_my_stickers_empty">No saved stickers yet.</string>
+    <string name="screen_my_stickers_send">Send</string>
+    <string name="screen_my_stickers_play">Play sound</string>
+    <string name="screen_my_stickers_stop">Stop sound</string>
+    <string name="screen_my_stickers_delete_title">Delete sticker?</string>
+    <string name="screen_my_stickers_delete_message">This sticker will be removed from this device.</string>
+    <string name="screen_my_stickers_error_delete">Unable to delete the sticker.</string>
+    <string name="screen_my_stickers_error_send">Unable to send the sticker.</string>
+    <string name="screen_my_stickers_sent">Sticker sent</string>
+</resources>

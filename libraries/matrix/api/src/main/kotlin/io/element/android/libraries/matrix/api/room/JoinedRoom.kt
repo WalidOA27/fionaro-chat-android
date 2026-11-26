@@ -161,6 +161,17 @@ interface JoinedRoom : BaseRoom {
      */
     fun getWidgetDriver(widgetSettings: MatrixWidgetSettings): Result<MatrixWidgetDriver>
 
+    /**
+     * Send a raw message-like event to the room.
+     *
+     * The event is encrypted by the SDK when the room is encrypted. Note that this does not
+     * use the send queue, so there is no local echo, no retry and no send-queue protection.
+     *
+     * @param eventType The type of the event to send (e.g. "m.sticker").
+     * @param contentJson The JSON content of the event.
+     */
+    suspend fun sendRawMessageLikeEvent(eventType: String, contentJson: String): Result<Unit>
+
     suspend fun setSendQueueEnabled(enabled: Boolean)
 
     /**

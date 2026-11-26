@@ -40,10 +40,47 @@ data class StickerContent(
     val info: ImageInfo,
     val source: MediaSource,
     val threadInfo: EventThreadInfo?,
+    /**
+     * Optional sound attached to the sticker by Fionaro clients. `null` for plain stickers.
+     */
+    val audio: StickerAudio? = null,
 ) : EventContent {
     val bestDescription: String
         get() = body ?: filename
 }
+
+/**
+ * Key of the custom content field carrying a sticker sound.
+ */
+const val STICKER_AUDIO_CONTENT_KEY = "io.fionaro.sticker_audio"
+
+/**
+ * Maximum duration of a sticker sound, in milliseconds.
+ */
+const val MAX_STICKER_AUDIO_DURATION_MS = 10_000L
+
+/**
+ * Maximum width or height of a sticker image, in pixels.
+ */
+const val MAX_STICKER_IMAGE_SIZE = 512
+
+/**
+ * Sound attached to a sticker (Fionaro extension stored in `io.fionaro.sticker_audio`).
+ */
+@Immutable
+data class StickerAudio(
+    /**
+     * The media source of the audio, plain (`url`) or encrypted (`file`).
+     */
+    val mediaSource: MediaSource,
+    val mimetype: String,
+    val size: Long?,
+    /**
+     * Duration of the audio clip in milliseconds. Senders are supposed to cap it at 10s, but
+     * receivers must tolerate longer values.
+     */
+    val durationMs: Long,
+)
 
 data class PollContent(
     val question: String,

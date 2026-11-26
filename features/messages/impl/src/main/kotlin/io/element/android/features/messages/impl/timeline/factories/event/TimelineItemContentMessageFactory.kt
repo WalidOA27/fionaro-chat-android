@@ -135,7 +135,8 @@ class TimelineItemContentMessageFactory(
                     height = messageType.info?.height?.toInt(),
                     aspectRatio = aspectRatio,
                     formattedFileSize = fileSizeFormatter.format(messageType.info?.size ?: 0),
-                    fileExtension = fileExtensionExtractor.extractFromName(messageType.filename)
+                    fileExtension = fileExtensionExtractor.extractFromName(messageType.filename),
+                    eventId = eventId,
                 )
             }
             is LocationMessageType -> {

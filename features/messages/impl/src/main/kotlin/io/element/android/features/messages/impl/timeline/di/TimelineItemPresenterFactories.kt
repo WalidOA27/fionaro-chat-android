@@ -47,6 +47,11 @@ class TimelineItemPresenterFactories(
     private val presenters: MutableMap<TimelineItemEventContent, Presenter<*>> = mutableMapOf()
 
     /**
+     * Whether a presenter factory is available for the given [contentClass].
+     */
+    fun <C : TimelineItemEventContent> hasPresenterFor(contentClass: KClass<C>): Boolean = factories.containsKey(contentClass)
+
+    /**
      * Creates and caches a presenter for the given content.
      *
      * Will throw if the presenter is not found in the [TimelineItemPresenterFactory] map multi binding.

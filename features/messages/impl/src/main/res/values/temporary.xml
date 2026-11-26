@@ -6,4 +6,6 @@
   -->
 <resources>
     <string name="screen_media_upload_preview_sending_progress">Sending %1$d of %2$d</string>
+    <string name="screen_room_attachment_source_sound_sticker">Sound sticker</string>
+    <string name="screen_room_attachment_source_my_stickers">My stickers</string>
 </resources>

@@ -575,6 +575,12 @@ class JoinedRustRoom(
         }.map(::EventId)
     }
 
+    override suspend fun sendRawMessageLikeEvent(eventType: String, contentJson: String): Result<Unit> = withContext(roomDispatcher) {
+        runCatchingExceptions {
+            innerRoom.sendRaw(eventType, contentJson)
+        }
+    }
+
     override fun close() = destroy()
 
     override fun destroy() {

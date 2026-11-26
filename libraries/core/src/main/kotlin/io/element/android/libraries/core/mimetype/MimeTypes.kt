@@ -35,6 +35,7 @@ object MimeTypes {
 
     const val Ogg = "audio/ogg"
     const val Mp3 = "audio/mp3"
+    const val Mp4Audio = "audio/mp4"
 
     const val PlainText = "text/plain"
 

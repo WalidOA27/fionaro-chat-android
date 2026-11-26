@@ -31,6 +31,7 @@ import io.element.android.features.messages.impl.timeline.model.event.TimelineIt
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemVideoContent
 import io.element.android.features.messages.impl.timeline.model.event.TimelineItemVoiceContent
 import io.element.android.features.messages.impl.timeline.model.event.ensureActiveLiveLocation
+import io.element.android.features.stickers.api.StickerSoundState
 import io.element.android.libraries.architecture.Presenter
 import io.element.android.libraries.voiceplayer.api.VoiceMessageState
 import io.element.android.wysiwyg.link.Link
@@ -90,14 +91,23 @@ fun TimelineItemEventContentView(
             onContentLayoutChange = onContentLayoutChange,
             modifier = modifier,
         )
-        is TimelineItemStickerContent -> TimelineItemStickerView(
-            content = content,
-            hideMediaContent = hideMediaContent,
-            onContentClick = onContentClick,
-            onLongClick = onLongClick,
-            onShowClick = onShowContentClick,
-            modifier = modifier,
-        )
+        is TimelineItemStickerContent -> {
+            val soundState: StickerSoundState? = if (content.audio != null && presenterFactories.hasPresenterFor(TimelineItemStickerContent::class)) {
+                presenterFactories.rememberPresenter<TimelineItemStickerContent, StickerSoundState>(content).present()
+            } else {
+                // No presenter available (e.g. pinned messages list), the sticker is rendered muted without badge.
+                null
+            }
+            TimelineItemStickerView(
+                content = content,
+                soundState = soundState,
+                hideMediaContent = hideMediaContent,
+                onContentClick = onContentClick,
+                onLongClick = onLongClick,
+                onShowClick = onShowContentClick,
+                modifier = modifier,
+            )
+        }
         is TimelineItemVideoContent -> TimelineItemVideoView(
             content = content,
             hideMediaContent = hideMediaContent,

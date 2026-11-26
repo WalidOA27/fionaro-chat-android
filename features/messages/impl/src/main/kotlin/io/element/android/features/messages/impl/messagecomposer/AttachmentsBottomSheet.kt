@@ -43,8 +43,11 @@ internal fun AttachmentsBottomSheet(
     state: MessageComposerState,
     onSendLocationClick: () -> Unit,
     onCreatePollClick: () -> Unit,
+    onSoundStickerClick: () -> Unit,
+    onMyStickersClick: () -> Unit,
     enableTextFormatting: Boolean,
     modifier: Modifier = Modifier,
+    showSoundStickerEntries: Boolean = true,
 ) {
     val localView = LocalView.current
     var isVisible by rememberSaveable { mutableStateOf(state.showAttachmentSourcePicker) }
@@ -83,6 +86,9 @@ internal fun AttachmentsBottomSheet(
                 enableTextFormatting = enableTextFormatting,
                 onSendLocationClick = onSendLocationClick,
                 onCreatePollClick = onCreatePollClick,
+                onSoundStickerClick = onSoundStickerClick,
+                onMyStickersClick = onMyStickersClick,
+                showSoundStickerEntries = showSoundStickerEntries,
             )
         }
     }
@@ -93,7 +99,10 @@ private fun AttachmentSourcePickerMenu(
     state: MessageComposerState,
     onSendLocationClick: () -> Unit,
     onCreatePollClick: () -> Unit,
+    onSoundStickerClick: () -> Unit,
+    onMyStickersClick: () -> Unit,
     enableTextFormatting: Boolean,
+    showSoundStickerEntries: Boolean,
 ) {
     Column(
         modifier = Modifier
@@ -139,6 +148,24 @@ private fun AttachmentSourcePickerMenu(
             leadingContent = ListItemContent.Icon(IconSource.Vector(CompoundIcons.Polls())),
             headlineContent = { Text(stringResource(R.string.screen_room_attachment_source_poll)) },
         )
+        if (showSoundStickerEntries) {
+            ListItem(
+                modifier = Modifier.clickable {
+                    state.eventSink(MessageComposerEvent.PickAttachmentSource.SoundSticker)
+                    onSoundStickerClick()
+                },
+                leadingContent = ListItemContent.Icon(IconSource.Vector(CompoundIcons.Sticker())),
+                headlineContent = { Text(stringResource(R.string.screen_room_attachment_source_sound_sticker)) },
+            )
+            ListItem(
+                modifier = Modifier.clickable {
+                    state.eventSink(MessageComposerEvent.PickAttachmentSource.MyStickers)
+                    onMyStickersClick()
+                },
+                leadingContent = ListItemContent.Icon(IconSource.Vector(CompoundIcons.Audio())),
+                headlineContent = { Text(stringResource(R.string.screen_room_attachment_source_my_stickers)) },
+            )
+        }
         if (enableTextFormatting) {
             ListItem(
                 modifier = Modifier.clickable { state.eventSink(MessageComposerEvent.ToggleTextFormatting(enabled = true)) },
@@ -158,6 +185,9 @@ internal fun AttachmentSourcePickerMenuPreview() = ElementPreview {
         ),
         onSendLocationClick = {},
         onCreatePollClick = {},
+        onSoundStickerClick = {},
+        onMyStickersClick = {},
         enableTextFormatting = true,
+        showSoundStickerEntries = true,
     )
 }

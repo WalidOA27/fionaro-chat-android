@@ -23,6 +23,8 @@ import io.element.android.features.messages.api.MessagesEntryPoint
 import io.element.android.features.messages.impl.pinned.banner.createPinnedEventsTimelineProvider
 import io.element.android.features.messages.impl.timeline.createTimelineController
 import io.element.android.features.poll.test.create.FakeCreatePollEntryPoint
+import io.element.android.features.stickers.api.MyStickersEntryPoint
+import io.element.android.features.stickers.api.SoundStickerCreatorEntryPoint
 import io.element.android.libraries.androidutils.system.DeviceHasVulkanSupport
 import io.element.android.libraries.dateformatter.test.FakeDateFormatter
 import io.element.android.libraries.matrix.api.core.EventId
@@ -67,6 +69,18 @@ class DefaultMessagesEntryPointTest {
                 shareLocationEntryPoint = FakeShareLocationEntryPoint(),
                 showLocationEntryPoint = FakeShowLocationEntryPoint(),
                 createPollEntryPoint = FakeCreatePollEntryPoint(),
+                soundStickerCreatorEntryPoint = object : SoundStickerCreatorEntryPoint {
+                    override fun createNode(
+                        parentNode: com.bumble.appyx.core.node.Node,
+                        buildContext: com.bumble.appyx.core.modality.BuildContext,
+                    ) = lambdaError()
+                },
+                myStickersEntryPoint = object : MyStickersEntryPoint {
+                    override fun createNode(
+                        parentNode: com.bumble.appyx.core.node.Node,
+                        buildContext: com.bumble.appyx.core.modality.BuildContext,
+                    ) = lambdaError()
+                },
                 elementCallEntryPoint = FakeElementCallEntryPoint(),
                 mediaViewerEntryPoint = FakeMediaViewerEntryPoint(),
                 forwardEntryPoint = FakeForwardEntryPoint(),

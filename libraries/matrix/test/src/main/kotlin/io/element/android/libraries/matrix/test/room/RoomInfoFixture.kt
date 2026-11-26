@@ -38,7 +38,7 @@ fun aRoomInfo(
     avatarUrl: String? = AN_AVATAR_URL,
     isPublic: Boolean = true,
     isDirect: Boolean = false,
-    isEncrypted: Boolean = false,
+    isEncrypted: Boolean? = false,
     joinRule: JoinRule? = JoinRule.Public,
     isSpace: Boolean = false,
     successorRoom: SuccessorRoom? = null,

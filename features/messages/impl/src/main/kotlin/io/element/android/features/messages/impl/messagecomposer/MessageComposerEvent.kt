@@ -28,6 +28,8 @@ sealed interface MessageComposerEvent {
         data object VideoFromCamera : PickAttachmentSource
         data object Location : PickAttachmentSource
         data object Poll : PickAttachmentSource
+        data object SoundSticker : PickAttachmentSource
+        data object MyStickers : PickAttachmentSource
     }
 
     data class ToggleTextFormatting(val enabled: Boolean) : MessageComposerEvent

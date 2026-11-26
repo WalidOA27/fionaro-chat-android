@@ -54,7 +54,13 @@ import uniffi.matrix_sdk_crypto.UtdCause as RustUtdCause
 class TimelineEventContentMapper(
     private val eventMessageMapper: EventMessageMapper = EventMessageMapper(),
 ) {
-    fun map(content: TimelineItemContent): EventContent {
+    /**
+     * @param content the raw SDK content to map.
+     * @param rawJsonProvider provides the latest raw JSON of the event. It is only called for
+     * stickers, to read the optional Fionaro sound. Required because the Rust SDK typed
+     * `MsgLikeKind.Sticker` does not expose custom content fields.
+     */
+    fun map(content: TimelineItemContent, rawJsonProvider: (() -> String?)? = null): EventContent {
         return content.use {
             when (it) {
                 is TimelineItemContent.FailedToParseMessageLike -> {
@@ -110,6 +116,7 @@ class TimelineEventContentMapper(
                                 info = kind.info.map(),
                                 source = kind.source.map(),
                                 threadInfo = extractThreadInfo(it.content),
+                                audio = parseStickerAudio(rawJsonProvider?.invoke()),
                             )
                         }
                         is MsgLikeKind.LiveLocation -> {
