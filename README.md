@@ -46,6 +46,7 @@ El APK queda en `app/build/outputs/apk/fdroid/release/`.
 
 - [PROJECT-REFERENCE.md](PROJECT-REFERENCE.md): arquitectura, ramas, versiones y convenciones del fork.
 - [AGENTS.md](AGENTS.md): convenciones de código heredadas de Element X.
+- [docs/fionaro_announcements.md](docs/fionaro_announcements.md): how to post release announcements on the Fionaro board.
 
 ## Licencia
 

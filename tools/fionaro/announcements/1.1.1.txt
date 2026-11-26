@@ -1,0 +1,11 @@
+📢 Fionaro Chat 1.1.1: actualización disponible
+
+Hemos publicado una nueva versión de Fionaro Chat. Te recomendamos actualizarla lo antes posible.
+
+Novedades
+• Búsqueda de usuarios: ahora puedes encontrar a cualquier usuario del servidor al crear un chat nuevo, aunque no compartáis ninguna sala.
+• Llamadas más estables: corregimos un fallo por el que algunas llamadas creaban salas duplicadas. También reforzamos la seguridad del servicio de llamadas.
+• Rendimiento y estabilidad: mejoramos el rendimiento general y la fiabilidad de las notificaciones y las llamadas.
+• Idioma: completamos las traducciones al español.
+
+Si encuentras algún problema, escríbenos por aquí.

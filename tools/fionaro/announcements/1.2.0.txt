@@ -1,0 +1,12 @@
+📢 Fionaro Chat 1.2.0: actualización disponible
+
+Hemos publicado una nueva versión de Fionaro Chat. Te recomendamos actualizarla lo antes posible.
+
+Novedades
+• Álbumes de fotos: ahora puedes elegir varias fotos a la vez y se envían juntas en un solo mensaje.
+• Stickers con sonido: crea tus propios stickers a partir de una imagen, un GIF o un vídeo, y añádeles sonido si quieres.
+• Guardar stickers: guarda en «Mis stickers» los que te envíen otras personas.
+• Stickers en hilos: ya puedes enviar stickers dentro de un hilo.
+• Fotos más nítidas: las fotos y las capturas de pantalla se ven mejor y siguen ocupando poco.
+
+Si encuentras algún problema, escríbenos por aquí.
