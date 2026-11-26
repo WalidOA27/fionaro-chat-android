@@ -63,19 +63,32 @@ internal class GifPalette(
 /**
  * Builds a [GifPalette] with a median cut: the color space of one frame is repeatedly split in
  * two along its widest channel, until there are [maxColors] boxes or no box can be split.
+ *
+ * An instance is bound to one encoder: its large bucket arrays are reused from frame to frame so
+ * that encoding a long animation does not allocate them again for every frame.
  */
-internal object GifQuantizer {
-    private const val BUCKET_COUNT = 32 * 32 * 32
+internal class GifQuantizer {
+    private val counts = IntArray(BUCKET_COUNT)
+    private val redSums = IntArray(BUCKET_COUNT)
+    private val greenSums = IntArray(BUCKET_COUNT)
+    private val blueSums = IntArray(BUCKET_COUNT)
+    private val bucketColors = IntArray(BUCKET_COUNT)
+    private val usedBuckets = ArrayList<Int>(INITIAL_BUCKET_CAPACITY)
+    private val boxes = ArrayList<Box>(GifPalette.MAX_COLORS)
 
-    fun quantize(pixels: IntArray, maxColors: Int = GifPalette.MAX_COLORS): GifPalette {
-        require(pixels.isNotEmpty()) { "Cannot quantize an empty frame" }
+    fun quantize(pixels: IntArray, maxColors: Int = GifPalette.MAX_COLORS): GifPalette =
+        quantize(pixels, pixels.size, maxColors)
+
+    fun quantize(pixels: IntArray, pixelCount: Int, maxColors: Int): GifPalette {
+        require(pixelCount in 1..pixels.size) { "Cannot quantize $pixelCount pixels" }
         require(maxColors in 1..GifPalette.MAX_COLORS) { "Invalid palette size $maxColors" }
 
-        val counts = IntArray(BUCKET_COUNT)
-        val redSums = IntArray(BUCKET_COUNT)
-        val greenSums = IntArray(BUCKET_COUNT)
-        val blueSums = IntArray(BUCKET_COUNT)
-        for (color in pixels) {
+        counts.fill(0)
+        redSums.fill(0)
+        greenSums.fill(0)
+        blueSums.fill(0)
+        for (index in 0 until pixelCount) {
+            val color = pixels[index]
             val bucket = GifPalette.bucketOf(color)
             counts[bucket] += 1
             redSums[bucket] += color shr 16 and 0xFF
@@ -83,57 +96,54 @@ internal object GifQuantizer {
             blueSums[bucket] += color and 0xFF
         }
 
-        val usedBuckets = ArrayList<Int>(maxColors * 4)
+        usedBuckets.clear()
+        var red = 0L
+        var green = 0L
+        var blue = 0L
         for (bucket in 0 until BUCKET_COUNT) {
-            if (counts[bucket] > 0) usedBuckets.add(bucket)
+            val count = counts[bucket]
+            if (count > 0) {
+                usedBuckets.add(bucket)
+                bucketColors[bucket] = averageColor(count.toLong(), redSums[bucket].toLong(), greenSums[bucket].toLong(), blueSums[bucket].toLong())
+                red += redSums[bucket]
+                green += greenSums[bucket]
+                blue += blueSums[bucket]
+            }
         }
         if (usedBuckets.isEmpty()) {
-            return GifPalette(intArrayOf(0), IntArray(BUCKET_COUNT))
+            // Only reachable with a zero pixel count guard above, kept so that a palette is always usable.
+            return GifPalette(intArrayOf(OPAQUE_BLACK), IntArray(BUCKET_COUNT))
         }
 
-        val bucketColors = IntArray(BUCKET_COUNT)
-        for (bucket in usedBuckets) {
-            bucketColors[bucket] = averageColor(counts, redSums, greenSums, blueSums, listOf(bucket))
-        }
-
-        val boxes = mutableListOf(Box(usedBuckets.toMutableList()))
+        boxes.clear()
+        boxes.add(Box(buckets = usedBuckets.toMutableList(), population = pixelCount.toLong(), red = red, green = green, blue = blue))
         while (boxes.size < maxColors) {
-            val box = boxes
-                .filter { it.buckets.size > 1 }
-                .maxByOrNull { population(it, counts) }
-                ?: break
-            val (first, second) = split(box, counts)
+            var selected: Box? = null
+            for (box in boxes) {
+                if (box.buckets.size > 1) {
+                    val current = selected
+                    if (current == null || box.population > current.population) selected = box
+                }
+            }
+            val box = selected ?: break
+            val (first, second) = split(box)
             boxes.remove(box)
             boxes.add(first)
             boxes.add(second)
         }
 
         val palette = IntArray(boxes.size) { index ->
-            averageColor(counts, redSums, greenSums, blueSums, boxes[index].buckets)
+            val box = boxes[index]
+            averageColor(box.population, box.red, box.green, box.blue)
         }
-        return GifPalette(palette, bucketColors)
+        return GifPalette(palette, bucketColors.copyOf())
     }
 
-    private fun split(box: Box, counts: IntArray): Pair<Box, Box> {
-        var channel = 0
-        var widestRange = -1
-        for (candidate in 0..2) {
-            var minValue = 32
-            var maxValue = -1
-            for (bucket in box.buckets) {
-                val value = channelValue(bucket, candidate)
-                minValue = minOf(minValue, value)
-                maxValue = maxOf(maxValue, value)
-            }
-            val range = maxValue - minValue
-            if (range > widestRange) {
-                widestRange = range
-                channel = candidate
-            }
-        }
-
+    private fun split(box: Box): Pair<Box, Box> {
+        val channel = widestChannel(box.buckets)
         box.buckets.sortWith(compareBy { channelValue(it, channel) })
-        val half = (population(box, counts) + 1) / 2
+
+        val half = (box.population + 1) / 2
         var accumulated = 0L
         var splitIndex = box.buckets.size - 1
         for (index in box.buckets.indices) {
@@ -144,33 +154,53 @@ internal object GifQuantizer {
             }
         }
         splitIndex = splitIndex.coerceIn(1, box.buckets.size - 1)
-        val first = box.buckets.subList(0, splitIndex).toMutableList()
-        val second = box.buckets.subList(splitIndex, box.buckets.size).toMutableList()
-        return Box(first) to Box(second)
-    }
 
-    private fun population(box: Box, counts: IntArray): Long = box.buckets.sumOf { counts[it].toLong() }
-
-    private fun averageColor(
-        counts: IntArray,
-        redSums: IntArray,
-        greenSums: IntArray,
-        blueSums: IntArray,
-        buckets: List<Int>,
-    ): Int {
-        var count = 0L
+        val firstBuckets = box.buckets.subList(0, splitIndex).toMutableList()
+        val secondBuckets = box.buckets.subList(splitIndex, box.buckets.size).toMutableList()
         var red = 0L
         var green = 0L
         var blue = 0L
-        for (bucket in buckets) {
-            val bucketCount = counts[bucket].toLong()
-            count += bucketCount
+        var population = 0L
+        for (bucket in firstBuckets) {
+            population += counts[bucket]
             red += redSums[bucket]
             green += greenSums[bucket]
             blue += blueSums[bucket]
         }
+        val first = Box(firstBuckets, population, red, green, blue)
+        val second = Box(
+            buckets = secondBuckets,
+            population = box.population - population,
+            red = box.red - red,
+            green = box.green - green,
+            blue = box.blue - blue,
+        )
+        return first to second
+    }
+
+    private fun widestChannel(buckets: List<Int>): Int {
+        var channel = 0
+        var widestRange = -1
+        for (candidate in 0..2) {
+            var minValue = 32
+            var maxValue = -1
+            for (bucket in buckets) {
+                val value = channelValue(bucket, candidate)
+                minValue = minOf(minValue, value)
+                maxValue = maxOf(maxValue, value)
+            }
+            val range = maxValue - minValue
+            if (range > widestRange) {
+                widestRange = range
+                channel = candidate
+            }
+        }
+        return channel
+    }
+
+    private fun averageColor(count: Long, red: Long, green: Long, blue: Long): Int {
         return if (count == 0L) {
-            0xFF000000.toInt()
+            OPAQUE_BLACK
         } else {
             0xFF shl 24 or
                 ((red / count).toInt() and 0xFF shl 16) or
@@ -185,5 +215,17 @@ internal object GifQuantizer {
         else -> bucket and 0x1F
     }
 
-    private data class Box(val buckets: MutableList<Int>)
+    private data class Box(
+        val buckets: MutableList<Int>,
+        val population: Long,
+        val red: Long,
+        val green: Long,
+        val blue: Long,
+    )
+
+    private companion object {
+        const val BUCKET_COUNT = 32 * 32 * 32
+        const val INITIAL_BUCKET_CAPACITY = 1024
+        const val OPAQUE_BLACK = 0xFF000000.toInt()
+    }
 }

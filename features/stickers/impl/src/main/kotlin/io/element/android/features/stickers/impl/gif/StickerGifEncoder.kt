@@ -30,6 +30,8 @@ internal class StickerGifEncoder(
     }
 
     private val output = ByteArrayOutputStream()
+    private val quantizer = GifQuantizer()
+    private val opaquePixels = IntArray(width * height)
     private var headerWritten = false
 
     /**
@@ -49,17 +51,19 @@ internal class StickerGifEncoder(
         val palette = if (hasTransparency) {
             // Reserve the last index for transparency, quantizing only the visible pixels so
             // that a fully transparent background does not pollute the color table.
-            val opaquePixels = IntArray(argbPixels.size)
             var opaqueCount = 0
             for (color in argbPixels) {
                 if (color ushr 24 >= TRANSPARENT_ALPHA_THRESHOLD) {
                     opaquePixels[opaqueCount++] = color
                 }
             }
-            val colorsToQuantize = if (opaqueCount == 0) intArrayOf(OPAQUE_BLACK) else opaquePixels.copyOf(opaqueCount)
-            GifQuantizer.quantize(colorsToQuantize, MAX_COLORS - 1)
+            if (opaqueCount == 0) {
+                quantizer.quantize(intArrayOf(OPAQUE_BLACK), 1, MAX_COLORS - 1)
+            } else {
+                quantizer.quantize(opaquePixels, opaqueCount, MAX_COLORS - 1)
+            }
         } else {
-            GifQuantizer.quantize(argbPixels, MAX_COLORS)
+            quantizer.quantize(argbPixels, MAX_COLORS)
         }
         val indices = ByteArray(argbPixels.size) { index ->
             val color = argbPixels[index]
